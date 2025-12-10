@@ -18,7 +18,6 @@ type RequestStatus = 'idle' | 'loading' | 'success' | 'error';
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [status, setStatus] = useState<RequestStatus>('idle');
   const [message, setMessage] = useState('');
 
@@ -47,12 +46,6 @@ export default function SignupPage() {
       return;
     }
 
-    if (displayName.length > 80) {
-      setStatus('error');
-      setMessage('氏名は80文字以内で入力してください。');
-      return;
-    }
-
     setStatus('loading');
     setMessage('アカウントを作成中です…');
 
@@ -60,7 +53,7 @@ export default function SignupPage() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, displayName: displayName.trim() || undefined }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = (await response.json().catch(() => null)) as
@@ -128,20 +121,6 @@ export default function SignupPage() {
               />
             </label>
 
-            <label className={labelClass}>
-              <span>氏名（表示名）</span>
-              <input
-                type="text"
-                name="displayName"
-                autoComplete="name"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="山田 海"
-                className={inputClass}
-                maxLength={80}
-              />
-            </label>
-
             <button
               type="submit"
               disabled={isDisabled}
@@ -161,10 +140,16 @@ export default function SignupPage() {
             </div>
 
             <p className="text-center text-sm text-slate-600">
-              すでにアカウントをお持ちの方は{' '}
-              <Link href="/login" className="font-semibold text-[#0077FF] hover:text-[#0066DD]">
-                ログインはこちら
-              </Link>
+              <span className="inline-flex flex-wrap items-center justify-center gap-1">
+                <span>すでにアカウントをお持ちの方は</span>
+                <Link
+                  href="/login"
+                  className="font-semibold text-[#0077FF] hover:text-[#0066DD] whitespace-nowrap"
+                >
+                  ログイン
+                </Link>
+                <span>してください。</span>
+              </span>
             </p>
           </form>
         </AuthCard>

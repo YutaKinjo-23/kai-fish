@@ -140,10 +140,16 @@ export default function LoginPage() {
             </div>
 
             <p className="text-center text-sm text-slate-600">
-              アカウントをお持ちでない方はこちら →{' '}
-              <Link href="/signup" className="font-semibold text-[#0077FF] hover:text-[#0066DD]">
-                新規登録へ
-              </Link>
+              <span className="inline-flex flex-wrap items-center justify-center gap-1">
+                <span>アカウントをお持ちでない方は</span>
+                <Link
+                  href="/signup"
+                  className="font-semibold text-[#0077FF] hover:text-[#0066DD] whitespace-nowrap"
+                >
+                  新規登録
+                </Link>
+                <span>してください。</span>
+              </span>
             </p>
           </form>
         </AuthCard>
