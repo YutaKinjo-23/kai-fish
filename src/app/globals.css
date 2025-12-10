@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  h1 {
+    @apply text-2xl font-semibold text-gray-900;
+  }
+  h2 {
+    @apply text-xl font-semibold text-gray-800;
+  }
+  body {
+    @apply text-sm text-gray-700;
+  }
+  .small {
+    @apply text-xs text-gray-500;
+  }
+}
+
 :root {
   color-scheme: light;
 }

@@ -67,9 +67,11 @@ export async function POST(request: Request) {
     { status: 201 }
   );
 
+  // TODO: 本番環境をHTTPS化したら secure: true に変更すること
+  // 現状: 本番環境がHTTPのため secure: false で運用中
   response.cookies.set(SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
