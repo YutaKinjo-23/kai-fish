@@ -19,9 +19,9 @@ async function verifyPassword(password: string, passwordHash: string): Promise<b
   return compare(password, passwordHash);
 }
 
-function normalizeTargets(targets?: string[]): string[] | undefined {
-  if (!Array.isArray(targets)) return undefined;
-  const cleaned = targets.map((item) => item.trim()).filter((item) => item.length > 0);
+function normalizeStringArray(items?: string[]): string[] | undefined {
+  if (!Array.isArray(items)) return undefined;
+  const cleaned = items.map((item) => item.trim()).filter((item) => item.length > 0);
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
@@ -29,7 +29,7 @@ export async function createUser(params: {
   email: string;
   password: string;
   displayName?: string;
-  area?: string;
+  areas?: string[];
   targets?: string[];
 }): Promise<
   | {
@@ -37,7 +37,7 @@ export async function createUser(params: {
         id: string;
         email: string;
         displayName?: string | null;
-        area?: string | null;
+        areas?: string[];
         targets?: string[];
       };
     }
@@ -57,8 +57,8 @@ export async function createUser(params: {
       email: normalizedEmail,
       passwordHash,
       displayName: params.displayName?.trim() || undefined,
-      area: params.area?.trim() || undefined,
-      targets: normalizeTargets(params.targets) ?? [],
+      areas: normalizeStringArray(params.areas) ?? [],
+      targets: normalizeStringArray(params.targets) ?? [],
     },
   });
 
@@ -67,7 +67,7 @@ export async function createUser(params: {
       id: user.id,
       email: user.email,
       displayName: user.displayName ?? undefined,
-      area: user.area ?? undefined,
+      areas: user.areas ?? undefined,
       targets: user.targets ?? undefined,
     },
   };
@@ -80,7 +80,8 @@ export async function validateCredentials(
   id: string;
   email: string;
   displayName?: string | null;
-  area?: string | null;
+  avatarUrl?: string | null;
+  areas?: string[];
   targets?: string[];
 } | null> {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
@@ -93,7 +94,8 @@ export async function validateCredentials(
     id: user.id,
     email: user.email,
     displayName: user.displayName,
-    area: user.area,
+    avatarUrl: user.avatarUrl,
+    areas: user.areas,
     targets: user.targets,
   };
 }
@@ -133,7 +135,8 @@ export async function getUserBySession(sessionId: string): Promise<{
   id: string;
   email: string;
   displayName?: string | null;
-  area?: string | null;
+  avatarUrl?: string | null;
+  areas?: string[];
   targets?: string[];
 } | null> {
   const session = await getSession(sessionId);
@@ -152,7 +155,44 @@ export async function getUserBySession(sessionId: string): Promise<{
     id: user.id,
     email: user.email,
     displayName: user.displayName,
-    area: user.area,
+    avatarUrl: user.avatarUrl,
+    areas: user.areas,
+    targets: user.targets,
+  };
+}
+
+export async function updateUserSettings(
+  userId: string,
+  params: {
+    displayName?: string;
+    avatarUrl?: string | null;
+    areas?: string[];
+    targets?: string[];
+  }
+): Promise<{
+  id: string;
+  email: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  areas?: string[];
+  targets?: string[];
+}> {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      displayName: params.displayName?.trim() || null,
+      avatarUrl: params.avatarUrl,
+      areas: normalizeStringArray(params.areas) ?? [],
+      targets: normalizeStringArray(params.targets) ?? [],
+    },
+  });
+
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+    areas: user.areas,
     targets: user.targets,
   };
 }
