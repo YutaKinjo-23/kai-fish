@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { AuthCard } from '../components/AuthCard';
 import { Logo } from '../components/Logo';
 
@@ -16,6 +17,7 @@ type AuthResponse = {
 type RequestStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export default function SignupPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState<RequestStatus>('idle');
@@ -77,6 +79,8 @@ export default function SignupPage() {
           ? `${data.user.displayName} さんのアカウントを作成しました。`
           : `${data.user.email} でアカウントを作成しました。`
       );
+
+      router.push('/');
     } catch (error) {
       setStatus('error');
       setMessage('通信に失敗しました。時間をおいて再度お試しください。');
