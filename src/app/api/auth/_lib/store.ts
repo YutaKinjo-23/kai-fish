@@ -114,7 +114,8 @@ export async function deleteSession(sessionId: string): Promise<void> {
   try {
     await prisma.session.delete({ where: { id: sessionId } });
   } catch (error) {
-    // セッションが存在しない場合は無視
+    // セッションが存在しない場合は無視しつつ、予期せぬエラーを検知できるように記録
+    console.error('Failed to delete session:', sessionId, error);
   }
 }
 

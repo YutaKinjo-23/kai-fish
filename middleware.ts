@@ -21,7 +21,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // セッション cookie 判定
+  // セッション cookie 判定（正当性と有効期限はサーバー側のAPIで検証するため、ここでは存在のみ確認）
   const hasSession = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (!hasSession) {
