@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Noto_Sans_JP } from 'next/font/google';
 import './globals.css';
+
+const notoSans = Noto_Sans_JP({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'fish-kai Console',
@@ -10,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body className={notoSans.className}>{children}</body>
     </html>
   );
 }
