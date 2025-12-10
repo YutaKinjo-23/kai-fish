@@ -33,7 +33,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// 画像など静的アセットは除外し、それ以外を対象にする
+// 全リクエストに対し上記ロジックを適用し、コード内で静的パスを除外する
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|kai-wave.svg).*)'],
+  matcher: ['/:path*'],
 };
