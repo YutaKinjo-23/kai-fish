@@ -10,6 +10,8 @@ WORKDIR /app
 
 # Install pnpm via Corepack
 RUN corepack enable
+# Explicitly use the project-required pnpm version to satisfy lockfile version
+RUN corepack prepare pnpm@9.12.0 --activate
 
 # Install dependencies first for better layer caching
 COPY package.json pnpm-lock.yaml* ./
