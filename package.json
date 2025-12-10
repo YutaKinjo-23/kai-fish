@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm dev:db; pnpm prisma:migrate-deploy && pnpm prisma:generate && next dev",
+    "dev": "pnpm dev:db && pnpm prisma:migrate-deploy && pnpm prisma:generate && next dev",
     "dev:db": "docker compose up -d db",
     "dev:mailpit": "cd .. && docker compose up -d mailpit",
     "build": "next build",

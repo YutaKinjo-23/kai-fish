@@ -12,6 +12,9 @@ const notoSans = Noto_Sans_JP({
 export const metadata: Metadata = {
   title: 'fish-kai Console',
   description: 'fish-kai 管理画面',
+  icons: {
+    icon: '/kai-wave.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

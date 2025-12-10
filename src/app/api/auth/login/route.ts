@@ -49,9 +49,10 @@ export async function POST(request: Request) {
     },
   });
 
+  // TODO: 本番環境をHTTPS化したら USE_SECURE_COOKIE 環境変数を削除し、secure: true に戻すこと
   response.cookies.set(SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && process.env.USE_SECURE_COOKIE !== 'false',
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
