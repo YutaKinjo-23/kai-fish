@@ -1,0 +1,34 @@
+{
+  "name": "fish-kai-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:mailpit": "cd .. && docker compose up -d mailpit",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --check \"src/**/*.{ts,tsx,js,jsx}\""
+  },
+  "dependencies": {
+    "next": "15.0.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.30",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "eslint": "8.57.1",
+    "eslint-config-next": "15.0.3",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-plugin-prettier": "5.2.1",
+    "prettier": "3.3.3",
+    "typescript": "5.5.4"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "packageManager": "pnpm@9.12.0"
+}
