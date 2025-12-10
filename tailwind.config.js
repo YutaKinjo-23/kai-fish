@@ -12,6 +12,13 @@ module.exports = {
         'primary-hover': '#0066DD',
         'bg-light': '#f7f9fb',
         'text-main': '#222',
+        brand: {
+          primary: '#2B3A67',
+          accent: '#4DA8DA',
+          mint: '#6EE7B7',
+          warning: '#FACC15',
+          bg: '#F5F7FA',
+        },
       },
       boxShadow: {
         card: '0 10px 30px rgba(0,0,0,0.06)',

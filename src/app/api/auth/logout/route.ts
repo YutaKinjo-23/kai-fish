@@ -12,9 +12,10 @@ export async function POST() {
 
   const response = NextResponse.json({ ok: true });
 
+  // TODO: 本番環境をHTTPS化したら secure: true に変更すること
   response.cookies.set(SESSION_COOKIE_NAME, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     sameSite: 'lax',
     path: '/',
     maxAge: 0,
