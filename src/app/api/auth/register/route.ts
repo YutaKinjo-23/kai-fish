@@ -17,7 +17,11 @@ export async function POST(request: Request) {
   const email = body.email.trim().toLowerCase();
   const password = body.password;
   const displayName = typeof body.displayName === 'string' ? body.displayName : undefined;
-  const area = typeof body.area === 'string' ? body.area : undefined;
+  const areas =
+    Array.isArray(body.areas) &&
+    body.areas.every((item: unknown): item is string => typeof item === 'string')
+      ? body.areas
+      : undefined;
   const targets =
     Array.isArray(body.targets) &&
     body.targets.every((item: unknown): item is string => typeof item === 'string')
@@ -42,11 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '表示名は80文字以内で入力してください。' }, { status: 400 });
   }
 
-  if (area && area.length > 80) {
-    return NextResponse.json({ error: 'エリアは80文字以内で入力してください。' }, { status: 400 });
-  }
-
-  const result = await createUser({ email, password, displayName, area, targets });
+  const result = await createUser({ email, password, displayName, areas, targets });
   if ('error' in result) {
     return NextResponse.json(
       { error: 'このメールアドレスは既に登録されています。' },

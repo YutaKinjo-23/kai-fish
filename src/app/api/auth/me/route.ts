@@ -31,7 +31,8 @@ export async function GET() {
       id: user.id,
       email: user.email,
       displayName: user.displayName ?? undefined,
-      area: user.area ?? undefined,
+      avatarUrl: user.avatarUrl ?? undefined,
+      areas: user.areas ?? undefined,
       targets: user.targets ?? undefined,
     },
   });
