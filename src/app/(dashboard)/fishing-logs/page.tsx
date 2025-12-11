@@ -16,6 +16,7 @@ import type {
   FishingLogFormData,
   FishingLogData,
 } from '@/types/fishing-log';
+import type { Lure } from '@/types/tackle';
 
 interface UserData {
   areas?: string[];
@@ -30,6 +31,7 @@ export default function FishingLogsPage() {
   const [filter, setFilter] = useState<FishingLogFilter>({});
   const [sort, setSort] = useState<FishingLogSort>({ key: 'date', order: 'desc' });
   const [userData, setUserData] = useState<UserData>({});
+  const [lures, setLures] = useState<Lure[]>([]);
 
   // モーダル状態
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -54,6 +56,22 @@ export default function FishingLogsPage() {
       }
     }
     fetchUser();
+  }, []);
+
+  // ルアー一覧取得（釣果イベントで選択する用）
+  useEffect(() => {
+    async function fetchLures() {
+      try {
+        const res = await fetch('/api/tackle/lures');
+        if (res.ok) {
+          const data = await res.json();
+          setLures(data.lures || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch lures:', error);
+      }
+    }
+    fetchLures();
   }, []);
 
   // データ取得
@@ -130,13 +148,22 @@ export default function FishingLogsPage() {
                 ...base,
                 type: 'setup' as const,
                 target: e.target,
+                targetSpeciesId: e.targetSpeciesId,
                 tackle: e.tackle,
+                tackleSetId: e.tackleSetId,
                 rig: e.rig,
+              };
+            case 'use':
+              return {
+                ...base,
+                type: 'use' as const,
+                lureId: e.lureId,
               };
             case 'catch':
               return {
                 ...base,
                 type: 'catch' as const,
+                lureId: e.lureId,
                 speciesId: e.speciesId || '',
                 sizeCm: e.sizeCm,
                 photoUrl: e.photoUrl,
@@ -233,6 +260,7 @@ export default function FishingLogsPage() {
         initialData={editingLog}
         mode={formMode}
         userAreas={userData.areas}
+        lures={lures}
       />
     </AppLayout>
   );

@@ -30,6 +30,24 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     include: {
       events: {
         orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          type: true,
+          time: true,
+          order: true,
+          area: true,
+          spotName: true,
+          target: true,
+          targetSpeciesId: true,
+          tackle: true,
+          tackleSetId: true,
+          rig: true,
+          lureId: true,
+          speciesId: true,
+          sizeCm: true,
+          photoUrl: true,
+          createdAt: true,
+        },
       },
     },
   });
@@ -55,8 +73,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         area: e.area,
         spotName: e.spotName,
         target: e.target,
+        targetSpeciesId: e.targetSpeciesId,
         tackle: e.tackle,
+        tackleSetId: e.tackleSetId,
         rig: e.rig,
+        lureId: e.lureId,
         speciesId: e.speciesId,
         sizeCm: e.sizeCm,
         photoUrl: e.photoUrl,
@@ -108,6 +129,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'イベントは1つ以上必要です。' }, { status: 400 });
   }
 
+  const events: FishingEvent[] = body.events;
+
+  // 釣果/使用イベントの lureId 所有権チェック（指定がある場合のみ）
+  const rawLureIds = events
+    .filter((e: FishingEvent) => e.type === 'catch' || e.type === 'use')
+    .map((e: FishingEvent) => (e.type === 'catch' || e.type === 'use' ? e.lureId : null))
+    .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    .map((id) => id.trim());
+  const lureIds = [...new Set(rawLureIds)];
+
+  if (lureIds.length > 0) {
+    const owned = await prisma.lure.findMany({
+      where: { userId: user.id, id: { in: lureIds } },
+      select: { id: true },
+    });
+    if (owned.length !== lureIds.length) {
+      return NextResponse.json({ error: '指定されたルアーが見つかりません。' }, { status: 400 });
+    }
+  }
+
   // トランザクションで更新
   const log = await prisma.$transaction(async (tx) => {
     // 既存のイベントを削除
@@ -122,15 +163,33 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         date: new Date(body.date),
         memo: body.memo || null,
         events: {
-          create: body.events.map((e: FishingEvent, index: number) => ({
+          create: events.map((e: FishingEvent, index: number) => ({
             type: e.type,
             time: e.time,
             order: e.order ?? index,
             area: e.type === 'spot' ? e.area : null,
             spotName: e.type === 'spot' ? e.spotName : null,
             target: e.type === 'setup' ? e.target : null,
+            targetSpeciesId:
+              e.type === 'setup' &&
+              typeof e.targetSpeciesId === 'string' &&
+              e.targetSpeciesId.trim().length > 0
+                ? e.targetSpeciesId.trim()
+                : null,
             tackle: e.type === 'setup' ? e.tackle : null,
+            tackleSetId:
+              e.type === 'setup' &&
+              typeof e.tackleSetId === 'string' &&
+              e.tackleSetId.trim().length > 0
+                ? e.tackleSetId.trim()
+                : null,
             rig: e.type === 'setup' ? e.rig : null,
+            lureId:
+              (e.type === 'catch' || e.type === 'use') &&
+              typeof e.lureId === 'string' &&
+              e.lureId.trim().length > 0
+                ? e.lureId.trim()
+                : null,
             speciesId: e.type === 'catch' ? e.speciesId : null,
             sizeCm: e.type === 'catch' ? e.sizeCm : null,
             photoUrl: e.type === 'catch' ? e.photoUrl : null,
@@ -140,6 +199,24 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       include: {
         events: {
           orderBy: { order: 'asc' },
+          select: {
+            id: true,
+            type: true,
+            time: true,
+            order: true,
+            area: true,
+            spotName: true,
+            target: true,
+            targetSpeciesId: true,
+            tackle: true,
+            tackleSetId: true,
+            rig: true,
+            lureId: true,
+            speciesId: true,
+            sizeCm: true,
+            photoUrl: true,
+            createdAt: true,
+          },
         },
       },
     });
@@ -158,8 +235,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         area: e.area,
         spotName: e.spotName,
         target: e.target,
+        targetSpeciesId: e.targetSpeciesId,
         tackle: e.tackle,
+        tackleSetId: e.tackleSetId,
         rig: e.rig,
+        lureId: e.lureId,
         speciesId: e.speciesId,
         sizeCm: e.sizeCm,
         photoUrl: e.photoUrl,

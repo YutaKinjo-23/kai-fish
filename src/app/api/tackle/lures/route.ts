@@ -1,12 +1,13 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { SESSION_COOKIE_NAME, getUserBySession } from '@/app/api/auth/_lib/store';
 
 /**
  * ルアー・ワーム一覧取得 (GET)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
@@ -19,12 +20,101 @@ export async function GET() {
     return NextResponse.json({ error: 'セッションが無効です。' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get('q') || '';
+  const area = searchParams.get('area') || '';
+  const timeZone = searchParams.get('timeZone') || '';
+  const season = searchParams.get('season') || '';
+  const tide = searchParams.get('tide') || '';
+  const waterQuality = searchParams.get('waterQuality') || '';
+  const includeStats = searchParams.get('includeStats') === '1';
+
+  const where: Prisma.LureWhereInput = {
+    userId: user.id,
+  };
+
+  if (q.trim().length > 0) {
+    where.OR = [
+      { name: { contains: q.trim(), mode: 'insensitive' } },
+      { maker: { contains: q.trim(), mode: 'insensitive' } },
+      { color: { contains: q.trim(), mode: 'insensitive' } },
+    ];
+  }
+
+  if (area.trim().length > 0) {
+    where.areas = { has: area.trim() };
+  }
+  if (timeZone.trim().length > 0) {
+    where.timeZones = { has: timeZone.trim() };
+  }
+  if (season.trim().length > 0) {
+    where.seasons = { has: season.trim() };
+  }
+  if (tide.trim().length > 0) {
+    where.tides = { has: tide.trim() };
+  }
+  if (waterQuality.trim().length > 0) {
+    where.waterQualities = { has: waterQuality.trim() };
+  }
+
   const lures = await prisma.lure.findMany({
-    where: { userId: user.id },
+    where,
     orderBy: { createdAt: 'desc' },
   });
 
-  return NextResponse.json({ lures });
+  if (!includeStats || lures.length === 0) {
+    return NextResponse.json({ lures });
+  }
+
+  const lureIds = lures.map((l) => l.id);
+  const grouped = await prisma.fishingEvent.groupBy({
+    by: [Prisma.FishingEventScalarFieldEnum.lureId],
+    where: {
+      type: 'catch',
+      lureId: { in: lureIds },
+      fishingLog: { userId: user.id },
+    },
+    _count: { _all: true },
+    _avg: { sizeCm: true },
+  });
+
+  const statsMap = new Map<string, { hitCount: number; avgSizeCm: number | null }>();
+  grouped.forEach((g) => {
+    if (!g.lureId) return;
+    const hitCount = typeof g._count === 'number' ? g._count : (g._count?._all ?? 0);
+    const avgSizeCm = g._avg?.sizeCm ?? null;
+    statsMap.set(g.lureId, { hitCount, avgSizeCm });
+  });
+
+  const usageGrouped = await prisma.fishingEvent.groupBy({
+    by: [Prisma.FishingEventScalarFieldEnum.lureId],
+    where: {
+      type: { in: ['catch', 'use'] },
+      lureId: { in: lureIds },
+      fishingLog: { userId: user.id },
+    },
+    _count: { _all: true },
+  });
+
+  const usageCountMap = new Map<string, number>();
+  usageGrouped.forEach((g) => {
+    if (!g.lureId) return;
+    const usageCount = typeof g._count === 'number' ? g._count : (g._count?._all ?? 0);
+    usageCountMap.set(g.lureId, usageCount);
+  });
+
+  const luresWithStats = lures.map((l) => {
+    const stats = statsMap.get(l.id);
+    const usageCount = usageCountMap.get(l.id);
+    return {
+      ...l,
+      hitCount: stats?.hitCount ?? 0,
+      avgSizeCm: stats?.avgSizeCm ?? null,
+      usageCount: usageCount ?? 0,
+    };
+  });
+
+  return NextResponse.json({ lures: luresWithStats });
 }
 
 /**

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getUserBySession } from '@/app/api/auth/_lib/store';
+import { SESSION_COOKIE_NAME, getUserBySession } from '@/app/api/auth/_lib/store';
 import { cookies } from 'next/headers';
-
-const SESSION_COOKIE_NAME = 'session_token';
 
 // エリアに紐づくスポット一覧を取得
 export async function GET(request: NextRequest) {
