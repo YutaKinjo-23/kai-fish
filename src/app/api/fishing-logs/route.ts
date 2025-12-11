@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { SESSION_COOKIE_NAME, getUserBySession } from '@/app/api/auth/_lib/store';
+import { FISH_SPECIES_MASTER } from '@/lib/master/fish-species';
 import type {
   FishingLogSummary,
   FishingLogFilter,
@@ -10,6 +11,24 @@ import type {
   SortOrder,
   FishingEvent,
 } from '@/types/fishing-log';
+
+const SPECIES_ID_BY_LABEL = new Map(
+  FISH_SPECIES_MASTER.flatMap((s) => {
+    const items: Array<[string, string]> = [
+      [s.id, s.id],
+      [s.kana, s.id],
+    ];
+    if (s.kanji) items.push([s.kanji, s.id]);
+    return items;
+  })
+);
+
+const getSpeciesIdFromLabel = (label: string | null | undefined): string | null => {
+  if (!label) return null;
+  const key = label.trim();
+  if (!key) return null;
+  return SPECIES_ID_BY_LABEL.get(key) ?? null;
+};
 
 /**
  * 釣行記録一覧取得 (GET)
@@ -80,6 +99,9 @@ export async function GET(request: NextRequest) {
       const firstSetupEvent = log.events.find((e) => e.type === 'setup');
       const catchEvents = log.events.filter((e) => e.type === 'catch');
 
+      const mainTargetSpeciesId =
+        firstSetupEvent?.targetSpeciesId || getSpeciesIdFromLabel(firstSetupEvent?.target);
+
       // 釣果集計
       const totalCatch = catchEvents.length;
       const sizes = catchEvents.map((c) => c.sizeCm).filter((s): s is number => s !== null);
@@ -92,7 +114,7 @@ export async function GET(request: NextRequest) {
       if (filter.spot && firstSpotEvent?.spotName !== filter.spot) {
         return null;
       }
-      if (filter.mainTarget && firstSetupEvent?.target !== filter.mainTarget) {
+      if (filter.mainTarget && mainTargetSpeciesId !== filter.mainTarget) {
         return null;
       }
 
@@ -155,6 +177,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'イベントは1つ以上必要です。' }, { status: 400 });
   }
 
+  const events: FishingEvent[] = body.events;
+
+  // 釣果/使用イベントの lureId 所有権チェック（指定がある場合のみ）
+  const rawLureIds = events
+    .filter((e: FishingEvent) => e.type === 'catch' || e.type === 'use')
+    .map((e: FishingEvent) => (e.type === 'catch' || e.type === 'use' ? e.lureId : null))
+    .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    .map((id) => id.trim());
+  const lureIds = [...new Set(rawLureIds)];
+
+  if (lureIds.length > 0) {
+    const owned = await prisma.lure.findMany({
+      where: { userId: user.id, id: { in: lureIds } },
+      select: { id: true },
+    });
+    if (owned.length !== lureIds.length) {
+      return NextResponse.json({ error: '指定されたルアーが見つかりません。' }, { status: 400 });
+    }
+  }
+
   // 釣行記録を作成
   const log = await prisma.fishingLog.create({
     data: {
@@ -162,15 +204,33 @@ export async function POST(request: NextRequest) {
       date: new Date(body.date),
       memo: body.memo || null,
       events: {
-        create: body.events.map((e: FishingEvent, index: number) => ({
+        create: events.map((e: FishingEvent, index: number) => ({
           type: e.type,
           time: e.time,
           order: e.order ?? index,
           area: e.type === 'spot' ? e.area : null,
           spotName: e.type === 'spot' ? e.spotName : null,
           target: e.type === 'setup' ? e.target : null,
+          targetSpeciesId:
+            e.type === 'setup' &&
+            typeof e.targetSpeciesId === 'string' &&
+            e.targetSpeciesId.trim().length > 0
+              ? e.targetSpeciesId.trim()
+              : null,
           tackle: e.type === 'setup' ? e.tackle : null,
+          tackleSetId:
+            e.type === 'setup' &&
+            typeof e.tackleSetId === 'string' &&
+            e.tackleSetId.trim().length > 0
+              ? e.tackleSetId.trim()
+              : null,
           rig: e.type === 'setup' ? e.rig : null,
+          lureId:
+            (e.type === 'catch' || e.type === 'use') &&
+            typeof e.lureId === 'string' &&
+            e.lureId.trim().length > 0
+              ? e.lureId.trim()
+              : null,
           speciesId: e.type === 'catch' ? e.speciesId : null,
           sizeCm: e.type === 'catch' ? e.sizeCm : null,
           photoUrl: e.type === 'catch' ? e.photoUrl : null,
@@ -180,6 +240,24 @@ export async function POST(request: NextRequest) {
     include: {
       events: {
         orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          type: true,
+          time: true,
+          order: true,
+          area: true,
+          spotName: true,
+          target: true,
+          targetSpeciesId: true,
+          tackle: true,
+          tackleSetId: true,
+          rig: true,
+          lureId: true,
+          speciesId: true,
+          sizeCm: true,
+          photoUrl: true,
+          createdAt: true,
+        },
       },
     },
   });
@@ -197,8 +275,11 @@ export async function POST(request: NextRequest) {
         area: e.area,
         spotName: e.spotName,
         target: e.target,
+        targetSpeciesId: e.targetSpeciesId,
         tackle: e.tackle,
+        tackleSetId: e.tackleSetId,
         rig: e.rig,
+        lureId: e.lureId,
         speciesId: e.speciesId,
         sizeCm: e.sizeCm,
         photoUrl: e.photoUrl,

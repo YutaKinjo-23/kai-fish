@@ -183,9 +183,22 @@ export interface Lure {
   name: string;
   color: string | null;
   size: string | null;
+  imageUrl: string | null;
   recommendedHook: string | null;
   recommendedRig: string | null;
+  recommendedSinkerWeight: string | null;
   memo: string | null;
+  rating: number | null;
+  conditionMemo: string | null;
+  rigExamples: string[];
+  areas: string[];
+  timeZones: string[];
+  seasons: string[];
+  tides: string[];
+  waterQualities: string[];
+  waterTempC: number | null;
+  windDirection: string | null;
+  windSpeedMs: number | null;
   stockQty: number | null;
   needRestock: boolean;
 }

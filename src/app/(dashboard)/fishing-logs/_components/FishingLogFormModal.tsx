@@ -12,12 +12,15 @@ import {
   Flag,
   ChevronUp,
   ChevronDown,
+  Tag,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { FISH_SPECIES_MASTER } from '@/lib/master/fish-species';
+import type { Lure } from '@/types/tackle';
 import type {
   FishingLogFormData,
   FishingEvent,
@@ -25,6 +28,7 @@ import type {
   FishingEventStart,
   FishingEventSpot,
   FishingEventSetup,
+  FishingEventUse,
   FishingEventCatch,
   FishingEventEnd,
 } from '@/types/fishing-log';
@@ -191,12 +195,14 @@ function TimeSelect({ value, onChange }: TimeSelectProps) {
 interface FishSpeciesAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
+  onSelectId?: (id: string | null) => void;
   placeholder?: string;
 }
 
 function FishSpeciesAutocomplete({
   value,
   onChange,
+  onSelectId,
   placeholder = '例: シーバス',
 }: FishSpeciesAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -235,6 +241,7 @@ function FishSpeciesAutocomplete({
   const handleSelect = (species: { id: string; kana: string }) => {
     setInputValue(species.kana);
     onChange(species.kana);
+    onSelectId?.(species.id);
     setIsOpen(false);
   };
 
@@ -242,6 +249,7 @@ function FishSpeciesAutocomplete({
     const newValue = e.target.value;
     setInputValue(newValue);
     onChange(newValue);
+    onSelectId?.(null);
     if (!isOpen) setIsOpen(true);
   };
 
@@ -283,6 +291,7 @@ interface FishingLogFormModalProps {
   initialData?: FishingLogFormData;
   mode: 'create' | 'edit';
   userAreas?: string[];
+  lures?: Lure[];
 }
 
 // デフォルトのイベント生成
@@ -294,11 +303,22 @@ const createDefaultEvent = (type: FishingEventType, order: number, time = ''): F
     case 'spot':
       return { ...base, type: 'spot', area: '', spotName: '' } as FishingEventSpot;
     case 'setup':
-      return { ...base, type: 'setup', target: '', tackle: '', rig: '' } as FishingEventSetup;
+      return {
+        ...base,
+        type: 'setup',
+        target: '',
+        targetSpeciesId: null,
+        tackle: '',
+        tackleSetId: null,
+        rig: '',
+      } as FishingEventSetup;
+    case 'use':
+      return { ...base, type: 'use', lureId: null } as FishingEventUse;
     case 'catch':
       return {
         ...base,
         type: 'catch',
+        lureId: null,
         speciesId: '',
         sizeCm: null,
         photoUrl: null,
@@ -339,6 +359,11 @@ const EVENT_TYPE_INFO: Record<
     icon: <Target className="w-4 h-4" />,
     colorClass: 'text-brand-primary',
   },
+  use: {
+    label: '使用ルアー',
+    icon: <Tag className="w-4 h-4" />,
+    colorClass: 'text-brand-primary',
+  },
   catch: { label: '釣果', icon: <Fish className="w-4 h-4" />, colorClass: 'text-brand-primary' },
   end: { label: '終了', icon: <Flag className="w-4 h-4" />, colorClass: 'text-brand-primary' },
 };
@@ -351,6 +376,7 @@ export function FishingLogFormModal({
   initialData,
   mode,
   userAreas = [],
+  lures = [],
 }: FishingLogFormModalProps) {
   const [formData, setFormData] = useState<FishingLogFormData>(createEmptyFormData());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -504,7 +530,14 @@ export function FishingLogFormModal({
     }
 
     // 少なくとも1つのスポットイベントが必要
-    const hasSpot = formData.events.some((e) => e.type === 'spot' && e.spotName);
+    const submitEvents = formData.events
+      .filter((ev) => {
+        if (ev.type !== 'use') return true;
+        return typeof ev.lureId === 'string' && ev.lureId.trim().length > 0;
+      })
+      .map((ev, i) => ({ ...ev, order: i }));
+
+    const hasSpot = submitEvents.some((e) => e.type === 'spot' && e.spotName);
     if (!hasSpot) {
       setError('少なくとも1つのスポットを入力してください。');
       return;
@@ -513,7 +546,7 @@ export function FishingLogFormModal({
     setIsSubmitting(true);
     try {
       // 新しいスポットを自動登録
-      const spotEvents = formData.events.filter(
+      const spotEvents = submitEvents.filter(
         (e): e is FishingEventSpot => e.type === 'spot' && !!e.spotName && !!e.area
       );
       for (const spotEvent of spotEvents) {
@@ -524,7 +557,7 @@ export function FishingLogFormModal({
         });
       }
 
-      await onSubmit(formData);
+      await onSubmit({ ...formData, events: submitEvents });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存に失敗しました。');
@@ -673,6 +706,9 @@ export function FishingLogFormModal({
                   <FishSpeciesAutocomplete
                     value={(event as FishingEventSetup).target || ''}
                     onChange={(value) => updateEvent<FishingEventSetup>(index, { target: value })}
+                    onSelectId={(id) =>
+                      updateEvent<FishingEventSetup>(index, { targetSpeciesId: id })
+                    }
                     placeholder="例: シーバス、バス"
                   />
                 </div>
@@ -701,6 +737,22 @@ export function FishingLogFormModal({
 
             {event.type === 'catch' && (
               <div className="space-y-3">
+                {lures.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">ルアー</label>
+                    <Select
+                      value={(event as FishingEventCatch).lureId || ''}
+                      onChange={(value) =>
+                        updateEvent<FishingEventCatch>(index, { lureId: value || null })
+                      }
+                      options={lures.map((l) => ({
+                        value: l.id,
+                        label: `${l.maker ? `${l.maker} ` : ''}${l.name}${l.color ? ` / ${l.color}` : ''}`,
+                      }))}
+                      placeholder="ルアーを選択（任意）"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">魚種 *</label>
                   <FishSpeciesAutocomplete
@@ -730,6 +782,32 @@ export function FishingLogFormModal({
                 </div>
               </div>
             )}
+
+            {event.type === 'use' && (
+              <div className="space-y-3">
+                {lures.length > 0 ? (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">ルアー</label>
+                    <Select
+                      value={(event as FishingEventUse).lureId || ''}
+                      onChange={(value) =>
+                        updateEvent<FishingEventUse>(index, { lureId: value || null })
+                      }
+                      options={lures.map((l) => ({
+                        value: l.id,
+                        label: `${l.maker ? `${l.maker} ` : ''}${l.name}${l.color ? ` / ${l.color}` : ''}`,
+                      }))}
+                      placeholder="ルアーを選択（任意）"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      釣れなくても「使った」を残すと、ルアー図鑑の使用回数に反映されます
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">ルアーが未登録のため選択できません。</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -755,8 +833,8 @@ export function FishingLogFormModal({
                 <span>イベントを追加</span>
               </button>
               {showAddMenu === index && (
-                <div className="absolute left-8 top-full mt-1 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-40">
-                  {(['spot', 'setup', 'catch'] as FishingEventType[]).map((type) => (
+                <div className="absolute left-8 top-full mt-1 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-48">
+                  {(['spot', 'setup', 'use', 'catch'] as FishingEventType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -764,11 +842,18 @@ export function FishingLogFormModal({
                       className="w-full px-3 py-2 text-left text-sm hover:bg-brand-primary/5 flex items-center gap-2"
                     >
                       <span
-                        className={`w-6 h-6 bg-white border border-brand-primary rounded-full flex items-center justify-center ${EVENT_TYPE_INFO[type].colorClass}`}
+                        className={`w-6 h-6 bg-white border border-brand-primary rounded-full flex items-center justify-center flex-shrink-0 ${EVENT_TYPE_INFO[type].colorClass}`}
                       >
                         {EVENT_TYPE_INFO[type].icon}
                       </span>
-                      <span className="text-gray-700">{EVENT_TYPE_INFO[type].label}</span>
+                      <span className="flex flex-col">
+                        <span className="text-gray-700">{EVENT_TYPE_INFO[type].label}</span>
+                        {type === 'use' && (
+                          <span className="text-[10px] text-gray-400">
+                            釣果がなくても記録できます
+                          </span>
+                        )}
+                      </span>
                     </button>
                   ))}
                 </div>

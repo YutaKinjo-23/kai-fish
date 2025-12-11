@@ -3,7 +3,7 @@
  */
 
 // イベントタイプ
-export type FishingEventType = 'start' | 'spot' | 'setup' | 'catch' | 'end';
+export type FishingEventType = 'start' | 'spot' | 'setup' | 'use' | 'catch' | 'end';
 
 // イベント基本形
 export interface FishingEventBase {
@@ -29,13 +29,22 @@ export interface FishingEventSpot extends FishingEventBase {
 export interface FishingEventSetup extends FishingEventBase {
   type: 'setup';
   target?: string | null;
+  targetSpeciesId?: string | null;
   tackle?: string | null;
+  tackleSetId?: string | null;
   rig?: string | null;
+}
+
+// 使用ルアーイベント（釣れなかったが使った）
+export interface FishingEventUse extends FishingEventBase {
+  type: 'use';
+  lureId?: string | null;
 }
 
 // 釣果イベント
 export interface FishingEventCatch extends FishingEventBase {
   type: 'catch';
+  lureId?: string | null;
   speciesId: string;
   sizeCm?: number | null;
   photoUrl?: string | null;
@@ -51,6 +60,7 @@ export type FishingEvent =
   | FishingEventStart
   | FishingEventSpot
   | FishingEventSetup
+  | FishingEventUse
   | FishingEventCatch
   | FishingEventEnd;
 
@@ -63,8 +73,11 @@ export interface FishingEventData {
   area: string | null;
   spotName: string | null;
   target: string | null;
+  targetSpeciesId: string | null;
   tackle: string | null;
+  tackleSetId: string | null;
   rig: string | null;
+  lureId: string | null;
   speciesId: string | null;
   sizeCm: number | null;
   photoUrl: string | null;

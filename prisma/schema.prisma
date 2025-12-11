@@ -99,9 +99,13 @@ model FishingEvent {
   spotName     String?
   // セットアップ情報（type: setup）
   target       String?    // ターゲット魚種ID
+  targetSpeciesId String?
   tackle       String?    // タックルセット名
+  tackleSetId  String?
   rig          String?    // リグ種別
   // 釣果情報（type: catch）
+  lureId       String?
+  lure         Lure?      @relation(fields: [lureId], references: [id], onDelete: SetNull)
   speciesId    String?    // 魚種ID
   sizeCm       Float?     // サイズ（cm）
   photoUrl     String?    // 写真URL
@@ -110,6 +114,7 @@ model FishingEvent {
 
   @@index([fishingLogId])
   @@index([type])
+  @@index([lureId])
 }
 
 // ロッドマスタ（ユーザー所有）
@@ -214,13 +219,27 @@ model Lure {
   name            String    // 製品名（例: LICKY 3inch）
   color           String?   // カラー名（例: アカキン）
   size            String?   // サイズ（インチ or g）
+  imageUrl        String?
   recommendedHook String?   // 推奨フックサイズ（例: オフセット#2）
   recommendedRig  String?   // 推奨リグ（例: texas,free）
+  recommendedSinkerWeight String? // 推奨シンカー重量（例: 5〜7g）
   memo            String?   // 所感メモ
+  rating          Int?      // 参考評価 ★1〜5
+  conditionMemo   String?   // 条件メモ（手入力）
+  rigExamples     String[]  @default([]) // リグ構成例（テキスト）
+  areas           String[]  @default([])
+  timeZones       String[]  @default([]) // ナイト/デイ
+  seasons         String[]  @default([]) // 春/夏/秋/冬
+  tides           String[]  @default([]) // 大潮/中潮/小潮/長潮
+  waterQualities  String[]  @default([]) // 澄み/やや濁り/濁り
+  waterTempC      Float?
+  windDirection   String?
+  windSpeedMs     Float?
   stockQty        Int?      // 所持数（ざっくり個数）
   needRestock     Boolean   @default(false) // 要補充フラグ
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  fishingEvents   FishingEvent[]
 
   @@index([userId])
   @@index([lureType])
