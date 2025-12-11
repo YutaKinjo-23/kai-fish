@@ -1,5 +1,5 @@
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
 }
@@ -18,6 +18,7 @@ export function Button({
     primary: 'bg-brand-primary text-white hover:bg-brand-primary/90',
     secondary: 'bg-brand-accent text-white hover:bg-brand-accent/90',
     outline: 'border border-brand-primary text-brand-primary hover:bg-brand-primary/10',
+    destructive: 'bg-red-600 text-white hover:bg-red-700',
   };
 
   const sizes = {
