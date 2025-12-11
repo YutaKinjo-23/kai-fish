@@ -8,15 +8,18 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
   passwordHash String
   displayName  String?
   avatarUrl    String?
-  areas        String[]
+  areas        String[]     // よく行くエリア
   targets      String[]
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime     @default(now())
   sessions     Session[]
+  fishingLogs  FishingLog[]
+  // スポットのお気に入り
+  favoriteSpots FavoriteSpot[]
 }
 
 model Session {
@@ -25,4 +28,79 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+// 共有スポットマスター（全ユーザー共有）
+model Spot {
+  id        String   @id @default(cuid())
+  name      String   // スポット名（松島突堤、知柄漁港など）
+  area      String   // エリア（愛知県 蒲郡市など）
+  createdBy String?  // 最初に登録したユーザーID（参照のみ、リレーションなし）
+  createdAt DateTime @default(now())
+  // お気に入り
+  favoritedBy FavoriteSpot[]
+
+  @@unique([name, area]) // 同じエリア内でスポット名はユニーク
+  @@index([area])
+}
+
+// ユーザーのお気に入りスポット
+model FavoriteSpot {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotId    String
+  spot      Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, spotId])
+  @@index([userId])
+}
+
+// 釣行記録
+model FishingLog {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // 日付
+  date      DateTime       @db.Date
+  // メモ
+  memo      String?
+  // タイムラインイベント
+  events    FishingEvent[]
+  // タイムスタンプ
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([date])
+}
+
+// 釣行イベント（タイムライン形式）
+model FishingEvent {
+  id           String     @id @default(cuid())
+  fishingLogId String
+  fishingLog   FishingLog @relation(fields: [fishingLogId], references: [id], onDelete: Cascade)
+  // イベント種別: start, spot, setup, catch, end
+  type         String
+  // 時刻（HH:mm形式）
+  time         String
+  // 順序
+  order        Int
+  // スポット情報（type: spot）
+  area         String?
+  spotName     String?
+  // セットアップ情報（type: setup）
+  target       String?    // ターゲット魚種ID
+  tackle       String?    // タックルセット名
+  rig          String?    // リグ種別
+  // 釣果情報（type: catch）
+  speciesId    String?    // 魚種ID
+  sizeCm       Float?     // サイズ（cm）
+  photoUrl     String?    // 写真URL
+  // タイムスタンプ
+  createdAt    DateTime   @default(now())
+
+  @@index([fishingLogId])
+  @@index([type])
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -66,7 +67,7 @@ export default function SettingsPage() {
     fetchSettings();
   }, [fetchSettings]);
 
-  // 地名検索（HeartRails Geo API）
+  // 地名検索（HeartRails Geo API）- 市区郡レベル
   const searchAreas = useCallback(async (keyword: string) => {
     if (keyword.length < 2) {
       setAreaSuggestions([]);
@@ -80,10 +81,24 @@ export default function SettingsPage() {
       if (res.ok) {
         const data: GeoApiResponse = await res.json();
         const locations = data.response?.location ?? [];
-        // 県名＋市区町村＋町域名で一意な候補を生成
-        const suggestions = locations.map((loc) => `${loc.prefecture} ${loc.city}${loc.town}`);
+        // 県名＋市区郡で一意な候補を生成（町域名は含めない）
+        const citySet = new Set<string>();
+        locations.forEach((loc) => {
+          // 「〇〇市〇〇区」「〇〇市」「〇〇区」「〇〇郡」までを抽出
+          // 政令指定都市の区（川崎市多摩区など）も含める
+          const cityWithWardMatch = loc.city.match(/^(.+?市.+?区)/);
+          if (cityWithWardMatch) {
+            // 「〇〇市〇〇区」パターン
+            citySet.add(`${loc.prefecture} ${cityWithWardMatch[1]}`);
+          } else {
+            // 「〇〇市」「〇〇区」「〇〇郡」パターン
+            const cityMatch = loc.city.match(/^(.+?[市区郡])/);
+            const cityName = cityMatch ? cityMatch[1] : loc.city;
+            citySet.add(`${loc.prefecture} ${cityName}`);
+          }
+        });
         // 重複を除去して最大10件
-        const unique = [...new Set(suggestions)].slice(0, 10);
+        const unique = [...citySet].slice(0, 10);
         setAreaSuggestions(unique);
       }
     } catch {
@@ -260,9 +275,11 @@ export default function SettingsPage() {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   {avatarUrl ? (
-                    <img
+                    <Image
                       src={avatarUrl}
                       alt="プロフィール画像"
+                      width={80}
+                      height={80}
                       className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                     />
                   ) : (
