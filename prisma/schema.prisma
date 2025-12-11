@@ -20,6 +20,13 @@ model User {
   fishingLogs  FishingLog[]
   // スポットのお気に入り
   favoriteSpots FavoriteSpot[]
+  // タックル関連
+  rods         Rod[]
+  reels        Reel[]
+  lines        Line[]
+  tackleSets   TackleSet[]
+  lures        Lure[]
+  terminalTackles TerminalTackle[]
 }
 
 model Session {
@@ -103,4 +110,138 @@ model FishingEvent {
 
   @@index([fishingLogId])
   @@index([type])
+}
+
+// ロッドマスタ（ユーザー所有）
+model Rod {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String       // モデル名（例: 月下美人76L-T）
+  maker           String?      // メーカー
+  lengthFt        String?      // 長さ（ft）（例: 7'6"）
+  power           String?      // パワー（UL, L, ML, M, MH, H, XH）
+  lureWeightMin   Float?       // 適合ルアーウェイト下限（g）
+  lureWeightMax   Float?       // 適合ルアーウェイト上限（g）
+  egiSizeMin      String?      // 適合エギ号数下限（例: 2.5）
+  egiSizeMax      String?      // 適合エギ号数上限（例: 3.5）
+  lineMin         String?      // 適合ライン下限（例: PE0.4）
+  lineMax         String?      // 適合ライン上限（例: PE1.0）
+  memo            String?      // メモ
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  tackleSets      TackleSet[]
+
+  @@index([userId])
+}
+
+// リールマスタ（ユーザー所有）
+model Reel {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String       // モデル名（例: レガリスLT2500S-XH）
+  maker           String?      // メーカー
+  size            String?      // 番手（例: 2500S, C3000）
+  spoolDepth      String?      // スプール深さ（任意）
+  gearRatio       String?      // ギア比（HG, PG, XG, ノーマル）
+  weight          Int?         // 自重（g）
+  spoolVariations String?      // 所有スプールバリエーション（PE0.6 / 0.8 など）
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  tackleSets      TackleSet[]
+
+  @@index([userId])
+}
+
+// ラインマスタ（ユーザー所有）
+model Line {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String       // ライン名（例: よつあみ G-Soul）
+  lineType    String       // 種類（PE, フロロ, ナイロン, エステル）
+  lineRole    String?      // 用途（本線, 下巻き, リーダー）
+  maker       String?      // メーカー
+  thickness   String?      // 太さ（例: 0.6号）
+  lb          String?      // ポンド数
+  reelId      String?      // 巻いているリール（任意）
+  usageTags   String?      // 使用用途タグ（カンマ区切り: ナイトロック,デイロック,エギング）
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tackleSetMainLines TackleSet[] @relation("MainLine")
+  tackleSetLeaders   TackleSet[] @relation("Leader")
+
+  @@index([userId])
+}
+
+// タックルセット（ユーザー所有）
+model TackleSet {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String    // セット名（例: ナイトロック西浦セット）
+  purpose       String?   // 用途（テキスト）
+  // ロッド・リール・ラインへの参照（共有可能）
+  rodId         String?
+  rod           Rod?      @relation(fields: [rodId], references: [id], onDelete: SetNull)
+  reelId        String?
+  reel          Reel?     @relation(fields: [reelId], references: [id], onDelete: SetNull)
+  mainLineId    String?
+  mainLine      Line?     @relation("MainLine", fields: [mainLineId], references: [id], onDelete: SetNull)
+  leaderId      String?
+  leader        Line?     @relation("Leader", fields: [leaderId], references: [id], onDelete: SetNull)
+  // リーダー情報（選択しない場合の手入力用）
+  leaderLb      String?   // リーダーポンド数（例: 12lb）
+  leaderLength  String?   // リーダー長さ（例: 1ヒロ）
+  // 想定リグ（複数選択可能、カンマ区切りで保存）
+  rigs          String?   // 例: "texas,free,bifuteki"
+  // ターゲット魚種（複数選択可能、カンマ区切りで保存）
+  targets       String?   // 例: "kasago,mebaru,aji"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// ルアー・ワームマスタ（ユーザー所有）
+model Lure {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lureType        String    // 種類（worm / plug / metal-jig）
+  maker           String?   // メーカー
+  name            String    // 製品名（例: LICKY 3inch）
+  color           String?   // カラー名（例: アカキン）
+  size            String?   // サイズ（インチ or g）
+  recommendedHook String?   // 推奨フックサイズ（例: オフセット#2）
+  recommendedRig  String?   // 推奨リグ（例: texas,free）
+  memo            String?   // 所感メモ
+  stockQty        Int?      // 所持数（ざっくり個数）
+  needRestock     Boolean   @default(false) // 要補充フラグ
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([lureType])
+}
+
+// 小物マスタ（フック・シンカー・スナップ等）
+model TerminalTackle {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String    // カテゴリ（hook / sinker / snap / swivel / other）
+  maker       String?   // メーカー
+  name        String    // 製品名・型番
+  size        String?   // サイズ（フック: #1, #2 / シンカー: 3.5g）
+  weight      String?   // 重さ（シンカー用）
+  stockQty    Int?      // 所持数
+  needRestock Boolean   @default(false) // 要補充フラグ
+  memo        String?   // メモ
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([category])
 }
