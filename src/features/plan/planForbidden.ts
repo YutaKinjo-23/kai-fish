@@ -1,15 +1,17 @@
-export const PLAN_FORBIDDEN_CODE = 'PLAN_FORBIDDEN' as const;
+import {
+  PlanForbiddenError,
+  isPlanForbiddenError,
+  PLAN_FORBIDDEN_CODE,
+} from '@/lib/features/errors';
 
-export type PlanForbiddenErrorBody = {
-  code: typeof PLAN_FORBIDDEN_CODE;
-  featureKey?: string;
-  message?: string;
-};
+export { PLAN_FORBIDDEN_CODE };
 
-export function isPlanForbiddenBody(v: unknown): v is PlanForbiddenErrorBody {
-  if (typeof v !== 'object' || v === null) {
-    return false;
-  }
-  const obj = v as Record<string, unknown>;
-  return obj.code === PLAN_FORBIDDEN_CODE;
-}
+/**
+ * @deprecated Use PlanForbiddenError from '@/lib/features/errors'
+ */
+export type PlanForbiddenErrorBody = PlanForbiddenError;
+
+/**
+ * @deprecated Use isPlanForbiddenError from '@/lib/features/errors'
+ */
+export const isPlanForbiddenBody = isPlanForbiddenError;

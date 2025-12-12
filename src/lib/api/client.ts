@@ -1,4 +1,4 @@
-import { isPlanForbiddenBody, PLAN_FORBIDDEN_CODE } from '@/features/plan/planForbidden';
+import { isPlanForbiddenError, PLAN_FORBIDDEN_CODE } from '@/lib/features/errors';
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   if (typeof v !== 'object' || v === null) return null;
@@ -22,7 +22,7 @@ export class PlanForbiddenError extends ApiError {
     super(403, data);
     this.name = 'PlanForbiddenError';
 
-    if (isPlanForbiddenBody(data)) {
+    if (isPlanForbiddenError(data)) {
       this.featureKey = data.featureKey;
       return;
     }
@@ -54,13 +54,13 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
 
     if (res.status === 403) {
       // 1. レスポンスボディ自体が PLAN_FORBIDDEN か
-      if (isPlanForbiddenBody(body)) {
+      if (isPlanForbiddenError(body)) {
         throw new PlanForbiddenError(body);
       }
 
       // 2. { error: ... } の形をしていて、中身が PLAN_FORBIDDEN か
       const errorObj = asRecord(body)?.error;
-      if (isPlanForbiddenBody(errorObj)) {
+      if (isPlanForbiddenError(errorObj)) {
         throw new PlanForbiddenError(errorObj);
       }
     }

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { SESSION_COOKIE_NAME, getUserBySession } from '@/app/api/auth/_lib/store';
 import type { Plan } from '@/lib/plan/features';
+import { unauthorized } from '@/lib/api/errors';
 
 export interface CurrentUser {
   id: string;
@@ -30,4 +31,18 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     email: user.email,
     plan: user.plan,
   };
+}
+
+/**
+ * 認証済みユーザーを取得（未認証なら例外でレスポンスを返す）
+ * @throws 401レスポンス（未認証時）
+ */
+export async function requireUser(): Promise<{ user: CurrentUser }> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw unauthorized();
+  }
+
+  return { user };
 }
