@@ -86,22 +86,45 @@ export async function GET(request: NextRequest) {
     statsMap.set(g.lureId, { hitCount, avgSizeCm });
   });
 
-  const usageGrouped = await prisma.fishingEvent.groupBy({
-    by: [Prisma.FishingEventScalarFieldEnum.lureId],
+  // 使用回数を計算（ルアーを変えた回数としてカウント）
+  // use/catchが連続している間は同一セッションとして扱う
+  const usageCountMap = new Map<string, number>();
+
+  const logsWithEvents = await prisma.fishingLog.findMany({
     where: {
-      type: { in: ['catch', 'use'] },
-      lureId: { in: lureIds },
-      fishingLog: { userId: user.id },
+      userId: user.id,
+      events: {
+        some: {
+          type: { in: ['use', 'catch'] },
+          lureId: { in: lureIds },
+        },
+      },
     },
-    _count: { _all: true },
+    include: {
+      events: {
+        where: {
+          OR: [{ type: { in: ['use', 'catch'] } }],
+        },
+        orderBy: { order: 'asc' },
+      },
+    },
   });
 
-  const usageCountMap = new Map<string, number>();
-  usageGrouped.forEach((g) => {
-    if (!g.lureId) return;
-    const usageCount = typeof g._count === 'number' ? g._count : (g._count?._all ?? 0);
-    usageCountMap.set(g.lureId, usageCount);
-  });
+  for (const log of logsWithEvents) {
+    let currentLureId: string | null = null;
+    for (const event of log.events) {
+      if ((event.type === 'use' || event.type === 'catch') && event.lureId) {
+        // ルアーが変わった場合のみ新しいセッションとしてカウント
+        if (event.lureId !== currentLureId) {
+          // 対象ルアーのみカウント
+          if (lureIds.includes(event.lureId)) {
+            usageCountMap.set(event.lureId, (usageCountMap.get(event.lureId) ?? 0) + 1);
+          }
+          currentLureId = event.lureId;
+        }
+      }
+    }
+  }
 
   const luresWithStats = lures.map((l) => {
     const stats = statsMap.get(l.id);

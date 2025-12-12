@@ -99,8 +99,8 @@ export async function GET(request: NextRequest) {
       const firstSetupEvent = log.events.find((e) => e.type === 'setup');
       const catchEvents = log.events.filter((e) => e.type === 'catch');
 
-      const mainTargetSpeciesId =
-        firstSetupEvent?.targetSpeciesId || getSpeciesIdFromLabel(firstSetupEvent?.target);
+      // 新しい構造ではtargetSpeciesIdsが配列なので最初の要素を使用
+      const mainTargetSpeciesId = firstSetupEvent?.targetSpeciesIds?.[0] || null;
 
       // 釣果集計
       const totalCatch = catchEvents.length;
@@ -125,8 +125,8 @@ export async function GET(request: NextRequest) {
         area: firstSpotEvent?.area || null,
         startTime: startEvent?.time || null,
         endTime: endEvent?.time || null,
-        mainTarget: firstSetupEvent?.target || null,
-        tackleSetName: firstSetupEvent?.tackle || null,
+        mainTarget: mainTargetSpeciesId,
+        tackleSetName: firstSetupEvent?.tackleSetId || null,
         totalCatch,
         maxSize,
         hasMemo: !!log.memo,
@@ -210,27 +210,33 @@ export async function POST(request: NextRequest) {
           order: e.order ?? index,
           area: e.type === 'spot' ? e.area : null,
           spotName: e.type === 'spot' ? e.spotName : null,
-          target: e.type === 'setup' ? e.target : null,
-          targetSpeciesId:
-            e.type === 'setup' &&
-            typeof e.targetSpeciesId === 'string' &&
-            e.targetSpeciesId.trim().length > 0
-              ? e.targetSpeciesId.trim()
-              : null,
-          tackle: e.type === 'setup' ? e.tackle : null,
           tackleSetId:
             e.type === 'setup' &&
             typeof e.tackleSetId === 'string' &&
             e.tackleSetId.trim().length > 0
               ? e.tackleSetId.trim()
               : null,
-          rig: e.type === 'setup' ? e.rig : null,
+          targetSpeciesIds:
+            e.type === 'setup' && Array.isArray(e.targetSpeciesIds) ? e.targetSpeciesIds : [],
           lureId:
             (e.type === 'catch' || e.type === 'use') &&
             typeof e.lureId === 'string' &&
             e.lureId.trim().length > 0
               ? e.lureId.trim()
               : null,
+          color:
+            e.type === 'use' && typeof e.color === 'string' && e.color.trim().length > 0
+              ? e.color.trim()
+              : null,
+          rigType:
+            e.type === 'use' &&
+            e.rig &&
+            typeof e.rig.type === 'string' &&
+            e.rig.type.trim().length > 0
+              ? e.rig.type.trim()
+              : null,
+          rigWeight:
+            e.type === 'use' && e.rig && typeof e.rig.weight === 'number' ? e.rig.weight : null,
           speciesId: e.type === 'catch' ? e.speciesId : null,
           sizeCm: e.type === 'catch' ? e.sizeCm : null,
           photoUrl: e.type === 'catch' ? e.photoUrl : null,
@@ -247,12 +253,12 @@ export async function POST(request: NextRequest) {
           order: true,
           area: true,
           spotName: true,
-          target: true,
-          targetSpeciesId: true,
-          tackle: true,
           tackleSetId: true,
-          rig: true,
+          targetSpeciesIds: true,
           lureId: true,
+          color: true,
+          rigType: true,
+          rigWeight: true,
           speciesId: true,
           sizeCm: true,
           photoUrl: true,
@@ -274,12 +280,12 @@ export async function POST(request: NextRequest) {
         order: e.order,
         area: e.area,
         spotName: e.spotName,
-        target: e.target,
-        targetSpeciesId: e.targetSpeciesId,
-        tackle: e.tackle,
         tackleSetId: e.tackleSetId,
-        rig: e.rig,
+        targetSpeciesIds: e.targetSpeciesIds,
         lureId: e.lureId,
+        color: e.color,
+        rigType: e.rigType,
+        rigWeight: e.rigWeight,
         speciesId: e.speciesId,
         sizeCm: e.sizeCm,
         photoUrl: e.photoUrl,

@@ -50,13 +50,44 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       : (grouped[0]?._count?._all ?? 0);
   const avgSizeCm = grouped[0]?._avg?.sizeCm ?? null;
 
-  const usageCount = await prisma.fishingEvent.count({
+  // 使用回数を計算（ルアーを変えた回数としてカウント）
+  // use/catchが連続している間は同一セッションとして扱う
+  const logsWithEvents = await prisma.fishingLog.findMany({
     where: {
-      type: { in: ['catch', 'use'] },
-      lureId: id,
-      fishingLog: { userId: user.id },
+      userId: user.id,
+      events: {
+        some: {
+          type: { in: ['use', 'catch'] },
+          lureId: id,
+        },
+      },
+    },
+    include: {
+      events: {
+        where: {
+          OR: [{ type: { in: ['use', 'catch'] } }],
+        },
+        orderBy: { order: 'asc' },
+      },
     },
   });
+
+  let usageCount = 0;
+  for (const log of logsWithEvents) {
+    let currentLureId: string | null = null;
+    for (const event of log.events) {
+      if ((event.type === 'use' || event.type === 'catch') && event.lureId) {
+        // ルアーが変わった場合のみ新しいセッションとしてカウント
+        if (event.lureId !== currentLureId) {
+          // 対象ルアーのみカウント
+          if (event.lureId === id) {
+            usageCount += 1;
+          }
+          currentLureId = event.lureId;
+        }
+      }
+    }
+  }
 
   // よく使用したリグ（ログから推定）
   const logs = await prisma.fishingLog.findMany({
@@ -69,12 +100,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     },
   });
 
+  // 新しい構造ではリグ情報はuseイベントに持つため、catchイベントと関連付けが必要
+  // ここでは直前のuseイベントのrigTypeを使用する
   const rigCounts = new Map<string, number>();
   logs.forEach((log) => {
     let currentRig: string | null = null;
     log.events.forEach((e) => {
-      if (e.type === 'setup') {
-        currentRig = e.rig || null;
+      if (e.type === 'use' && e.lureId === id) {
+        currentRig = e.rigType || null;
       }
       if (e.type === 'catch' && e.lureId === id) {
         if (currentRig && currentRig.trim().length > 0) {

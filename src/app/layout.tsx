@@ -11,7 +11,7 @@ const notoSans = Noto_Sans_JP({
 
 export const metadata: Metadata = {
   title: 'KAI-海',
-  description: 'fish-kai 管理画面',
+  description: 'KAI-海 管理画面',
   icons: {
     icon: '/kai-wave.svg',
   },

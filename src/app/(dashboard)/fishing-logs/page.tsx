@@ -16,7 +16,7 @@ import type {
   FishingLogFormData,
   FishingLogData,
 } from '@/types/fishing-log';
-import type { Lure } from '@/types/tackle';
+import type { Lure, TackleSet } from '@/types/tackle';
 
 interface UserData {
   areas?: string[];
@@ -32,6 +32,7 @@ export default function FishingLogsPage() {
   const [sort, setSort] = useState<FishingLogSort>({ key: 'date', order: 'desc' });
   const [userData, setUserData] = useState<UserData>({});
   const [lures, setLures] = useState<Lure[]>([]);
+  const [tackleSets, setTackleSets] = useState<TackleSet[]>([]);
 
   // モーダル状態
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -72,6 +73,22 @@ export default function FishingLogsPage() {
       }
     }
     fetchLures();
+  }, []);
+
+  // タックルセット一覧取得
+  useEffect(() => {
+    async function fetchTackleSets() {
+      try {
+        const res = await fetch('/api/tackle/sets');
+        if (res.ok) {
+          const data = await res.json();
+          setTackleSets(data.tackleSets || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch tackle sets:', error);
+      }
+    }
+    fetchTackleSets();
   }, []);
 
   // データ取得
@@ -147,17 +164,19 @@ export default function FishingLogsPage() {
               return {
                 ...base,
                 type: 'setup' as const,
-                target: e.target,
-                targetSpeciesId: e.targetSpeciesId,
-                tackle: e.tackle,
-                tackleSetId: e.tackleSetId,
-                rig: e.rig,
+                tackleSetId: e.tackleSetId || '',
+                targetSpeciesIds: e.targetSpeciesIds || [],
               };
             case 'use':
               return {
                 ...base,
                 type: 'use' as const,
-                lureId: e.lureId,
+                lureId: e.lureId || '',
+                color: e.color,
+                rig: {
+                  type: e.rigType || '',
+                  weight: e.rigWeight || 0,
+                },
               };
             case 'catch':
               return {
@@ -261,6 +280,7 @@ export default function FishingLogsPage() {
         mode={formMode}
         userAreas={userData.areas}
         lures={lures}
+        tackleSets={tackleSets}
       />
     </AppLayout>
   );

@@ -18,9 +18,11 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Combobox } from '@/components/ui/Combobox';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { FISH_SPECIES_MASTER } from '@/lib/master/fish-species';
-import type { Lure } from '@/types/tackle';
+import { RIG_TYPES_MASTER } from '@/lib/master/rig-types';
+import type { Lure, TackleSet } from '@/types/tackle';
 import type {
   FishingLogFormData,
   FishingEvent,
@@ -292,6 +294,7 @@ interface FishingLogFormModalProps {
   mode: 'create' | 'edit';
   userAreas?: string[];
   lures?: Lure[];
+  tackleSets?: TackleSet[];
 }
 
 // デフォルトのイベント生成
@@ -306,14 +309,17 @@ const createDefaultEvent = (type: FishingEventType, order: number, time = ''): F
       return {
         ...base,
         type: 'setup',
-        target: '',
-        targetSpeciesId: null,
-        tackle: '',
-        tackleSetId: null,
-        rig: '',
+        tackleSetId: '',
+        targetSpeciesIds: [],
       } as FishingEventSetup;
     case 'use':
-      return { ...base, type: 'use', lureId: null } as FishingEventUse;
+      return {
+        ...base,
+        type: 'use',
+        lureId: '',
+        color: null,
+        rig: { type: '', weight: 0 },
+      } as FishingEventUse;
     case 'catch':
       return {
         ...base,
@@ -377,6 +383,7 @@ export function FishingLogFormModal({
   mode,
   userAreas = [],
   lures = [],
+  tackleSets = [],
 }: FishingLogFormModalProps) {
   const [formData, setFormData] = useState<FishingLogFormData>(createEmptyFormData());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -463,6 +470,46 @@ export function FishingLogFormModal({
     }
   }, []);
 
+  // 全タックルセットの想定リグを収集してリグオプションを生成
+  const getRigOptionsForEvent = useCallback(() => {
+    // マスターデータをベースにオプションを作成
+    const masterOptions = RIG_TYPES_MASTER.map((r) => ({
+      value: r.id,
+      label: r.name,
+    }));
+
+    // 全タックルセットから想定リグを収集（重複排除）
+    const userRigsSet = new Set<string>();
+    for (const tackleSet of tackleSets) {
+      if (tackleSet.rigs) {
+        const rigs = tackleSet.rigs.split(',').filter(Boolean);
+        rigs.forEach((rig) => userRigsSet.add(rig));
+      }
+    }
+
+    const userRigs = Array.from(userRigsSet);
+    if (userRigs.length === 0) {
+      return masterOptions;
+    }
+
+    // ユーザー登録リグをグループ化して先頭に追加
+    const userRigOptions = userRigs.map((rigId) => {
+      const masterRig = RIG_TYPES_MASTER.find((r) => r.id === rigId);
+      return {
+        value: rigId,
+        label: masterRig ? masterRig.name : rigId,
+        group: '登録済みリグ',
+      };
+    });
+
+    // マスターから重複を除外
+    const filteredMasterOptions = masterOptions
+      .filter((opt) => !userRigs.includes(opt.value))
+      .map((opt) => ({ ...opt, group: 'その他のリグ' }));
+
+    return [...userRigOptions, ...filteredMasterOptions];
+  }, [tackleSets]);
+
   // イベント更新
   const updateEvent = <T extends FishingEvent>(index: number, updates: Partial<T>) => {
     const newEvents = [...formData.events];
@@ -529,13 +576,26 @@ export function FishingLogFormModal({
       return;
     }
 
+    // セットアップイベントのバリデーション（tackleSetIdは必須）
+    const setupEvents = formData.events.filter((e): e is FishingEventSetup => e.type === 'setup');
+    for (const setupEvent of setupEvents) {
+      if (!setupEvent.tackleSetId) {
+        setError('セットアップイベントのタックルセットは必須です。');
+        return;
+      }
+    }
+
+    // 使用ルアーイベントのバリデーション
+    const useEvents = formData.events.filter((e): e is FishingEventUse => e.type === 'use');
+    for (const useEvent of useEvents) {
+      if (!useEvent.lureId) {
+        setError('使用ルアーイベントのルアーは必須です。');
+        return;
+      }
+    }
+
     // 少なくとも1つのスポットイベントが必要
-    const submitEvents = formData.events
-      .filter((ev) => {
-        if (ev.type !== 'use') return true;
-        return typeof ev.lureId === 'string' && ev.lureId.trim().length > 0;
-      })
-      .map((ev, i) => ({ ...ev, order: i }));
+    const submitEvents = formData.events.map((ev, i) => ({ ...ev, order: i }));
 
     const hasSpot = submitEvents.some((e) => e.type === 'spot' && e.spotName);
     if (!hasSpot) {
@@ -702,57 +762,77 @@ export function FishingLogFormModal({
             {event.type === 'setup' && (
               <div className="space-y-3">
                 <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">タックル *</label>
+                  {tackleSets.length > 0 ? (
+                    <Select
+                      value={(event as FishingEventSetup).tackleSetId || ''}
+                      onChange={(value) =>
+                        updateEvent<FishingEventSetup>(index, { tackleSetId: value })
+                      }
+                      options={tackleSets.map((ts) => ({
+                        value: ts.id,
+                        label: ts.name,
+                      }))}
+                      placeholder="タックルセットを選択"
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      タックルセットが未登録です。タックルボックスから登録してください。
+                    </p>
+                  )}
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">ターゲット</label>
                   <FishSpeciesAutocomplete
-                    value={(event as FishingEventSetup).target || ''}
-                    onChange={(value) => updateEvent<FishingEventSetup>(index, { target: value })}
-                    onSelectId={(id) =>
-                      updateEvent<FishingEventSetup>(index, { targetSpeciesId: id })
-                    }
-                    placeholder="例: シーバス、バス"
+                    value={((event as FishingEventSetup).targetSpeciesIds || [])
+                      .map((id) => FISH_SPECIES_MASTER.find((s) => s.id === id)?.kana || '')
+                      .filter(Boolean)
+                      .join(', ')}
+                    onChange={() => {}}
+                    onSelectId={(id) => {
+                      if (!id) return;
+                      const current = (event as FishingEventSetup).targetSpeciesIds || [];
+                      if (!current.includes(id)) {
+                        updateEvent<FishingEventSetup>(index, {
+                          targetSpeciesIds: [...current, id],
+                        });
+                      }
+                    }}
+                    placeholder="例: シーバス、バス（複数選択可）"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">タックル</label>
-                  <Input
-                    type="text"
-                    value={(event as FishingEventSetup).tackle || ''}
-                    onChange={(e) =>
-                      updateEvent<FishingEventSetup>(index, { tackle: e.target.value })
-                    }
-                    placeholder="使用タックルを入力"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">リグ</label>
-                  <Input
-                    type="text"
-                    value={(event as FishingEventSetup).rig || ''}
-                    onChange={(e) => updateEvent<FishingEventSetup>(index, { rig: e.target.value })}
-                    placeholder="例: ダウンショット、ネコリグ"
-                  />
+                  {((event as FishingEventSetup).targetSpeciesIds || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {((event as FishingEventSetup).targetSpeciesIds || []).map((id) => {
+                        const species = FISH_SPECIES_MASTER.find((s) => s.id === id);
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-brand-primary/10 text-brand-primary text-xs rounded-full"
+                          >
+                            {species?.kana || id}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const current = (event as FishingEventSetup).targetSpeciesIds || [];
+                                updateEvent<FishingEventSetup>(index, {
+                                  targetSpeciesIds: current.filter((tid) => tid !== id),
+                                });
+                              }}
+                              className="hover:text-red-500"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {event.type === 'catch' && (
               <div className="space-y-3">
-                {lures.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">ルアー</label>
-                    <Select
-                      value={(event as FishingEventCatch).lureId || ''}
-                      onChange={(value) =>
-                        updateEvent<FishingEventCatch>(index, { lureId: value || null })
-                      }
-                      options={lures.map((l) => ({
-                        value: l.id,
-                        label: `${l.maker ? `${l.maker} ` : ''}${l.name}${l.color ? ` / ${l.color}` : ''}`,
-                      }))}
-                      placeholder="ルアーを選択（任意）"
-                    />
-                  </div>
-                )}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">魚種 *</label>
                   <FishSpeciesAutocomplete
@@ -780,18 +860,13 @@ export function FishingLogFormModal({
                     min="0"
                   />
                 </div>
-              </div>
-            )}
-
-            {event.type === 'use' && (
-              <div className="space-y-3">
-                {lures.length > 0 ? (
+                {lures.length > 0 && (
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">ルアー</label>
                     <Select
-                      value={(event as FishingEventUse).lureId || ''}
+                      value={(event as FishingEventCatch).lureId || ''}
                       onChange={(value) =>
-                        updateEvent<FishingEventUse>(index, { lureId: value || null })
+                        updateEvent<FishingEventCatch>(index, { lureId: value || null })
                       }
                       options={lures.map((l) => ({
                         value: l.id,
@@ -799,10 +874,109 @@ export function FishingLogFormModal({
                       }))}
                       placeholder="ルアーを選択（任意）"
                     />
-                    <p className="text-xs text-gray-400 mt-1">
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">リグ種別</label>
+                  <Combobox
+                    value={(event as FishingEventCatch).rig?.type || ''}
+                    onChange={(value) =>
+                      updateEvent<FishingEventCatch>(index, {
+                        rig: value
+                          ? {
+                              type: value,
+                              weight: (event as FishingEventCatch).rig?.weight || 0,
+                            }
+                          : null,
+                      })
+                    }
+                    options={getRigOptionsForEvent()}
+                    placeholder="リグを選択または入力"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    ウェイト (g)
+                  </label>
+                  <Input
+                    type="number"
+                    value={(event as FishingEventCatch).rig?.weight || ''}
+                    onChange={(e) =>
+                      updateEvent<FishingEventCatch>(index, {
+                        rig: {
+                          type: (event as FishingEventCatch).rig?.type || '',
+                          weight: e.target.value ? parseFloat(e.target.value) : 0,
+                        },
+                      })
+                    }
+                    placeholder="例: 3.5"
+                    step="0.1"
+                    min="0"
+                  />
+                </div>
+              </div>
+            )}
+
+            {event.type === 'use' && (
+              <div className="space-y-3">
+                {lures.length > 0 ? (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        ルアー *
+                      </label>
+                      <Select
+                        value={(event as FishingEventUse).lureId || ''}
+                        onChange={(value) => updateEvent<FishingEventUse>(index, { lureId: value })}
+                        options={lures.map((l) => ({
+                          value: l.id,
+                          label: `${l.maker ? `${l.maker} ` : ''}${l.name}${l.color ? ` / ${l.color}` : ''}`,
+                        }))}
+                        placeholder="ルアーを選択"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        リグ種別
+                      </label>
+                      <Combobox
+                        value={(event as FishingEventUse).rig?.type || ''}
+                        onChange={(value) =>
+                          updateEvent<FishingEventUse>(index, {
+                            rig: {
+                              type: value,
+                              weight: (event as FishingEventUse).rig?.weight || 0,
+                            },
+                          })
+                        }
+                        options={getRigOptionsForEvent()}
+                        placeholder="リグを選択または入力"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        ウェイト (g)
+                      </label>
+                      <Input
+                        type="number"
+                        value={(event as FishingEventUse).rig?.weight || ''}
+                        onChange={(e) =>
+                          updateEvent<FishingEventUse>(index, {
+                            rig: {
+                              type: (event as FishingEventUse).rig?.type || '',
+                              weight: e.target.value ? parseFloat(e.target.value) : 0,
+                            },
+                          })
+                        }
+                        placeholder="例: 3.5"
+                        step="0.1"
+                        min="0"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400">
                       釣れなくても「使った」を残すと、ルアー図鑑の使用回数に反映されます
                     </p>
-                  </div>
+                  </>
                 ) : (
                   <p className="text-xs text-gray-500">ルアーが未登録のため選択できません。</p>
                 )}
