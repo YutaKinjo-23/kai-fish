@@ -471,23 +471,25 @@ function LureBarChart({ data }: LureBarChartProps) {
   const maxHit = Math.max(...data.map((d) => d.hitCount), 1);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {data.map((item) => (
-        <div key={item.lureId} className="flex items-center gap-2">
-          <div className="w-32 truncate text-sm" title={item.label}>
-            {item.label}
-          </div>
-          <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
-            <div
-              className="h-full bg-brand-primary rounded"
-              style={{ width: `${(item.hitCount / maxHit) * 100}%` }}
-            />
-          </div>
-          <div className="w-16 text-right text-sm">
-            {item.hitCount}匹
-            {item.usageCount !== undefined && (
-              <span className="text-gray-400 text-xs ml-1">({item.usageCount})</span>
-            )}
+        <div key={item.lureId} className="space-y-1">
+          {/* ルアー名（上段） */}
+          <div className="text-sm text-gray-800">{item.label}</div>
+          {/* バー＋数値（下段） */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+              <div
+                className="h-full bg-brand-primary rounded"
+                style={{ width: `${(item.hitCount / maxHit) * 100}%` }}
+              />
+            </div>
+            <div className="w-16 text-right text-sm whitespace-nowrap">
+              {item.hitCount}匹
+              {item.usageCount !== undefined && (
+                <span className="text-gray-400 text-xs ml-1">({item.usageCount})</span>
+              )}
+            </div>
           </div>
         </div>
       ))}
