@@ -4,7 +4,7 @@
  */
 
 /** Feature Keyの型（追加はここに追記するだけ） */
-export type FeatureKey = 'dashboard.advanced' | 'lure.breakdown' | 'ai.recommend';
+export type FeatureKey = 'dashboard.advanced' | 'lures.breakdown' | 'ai.recommend';
 
 /** プラン型 */
 export type Plan = 'free' | 'pro';
@@ -14,7 +14,7 @@ export const PLAN_FEATURES = {
   free: [] as const satisfies readonly FeatureKey[],
   pro: [
     'dashboard.advanced',
-    'lure.breakdown',
+    'lures.breakdown',
     'ai.recommend',
   ] as const satisfies readonly FeatureKey[],
 } as const;

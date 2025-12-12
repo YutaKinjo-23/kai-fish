@@ -7,6 +7,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { LureBreakdownCard } from './LureBreakdownCard';
 import { SEASONS, TIDES, TIME_ZONES, WATER_QUALITIES } from '../_lib/lure-conditions';
 import type { Lure } from '@/types/tackle';
 
@@ -425,6 +426,10 @@ export default function LureDBDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <LureBreakdownCard lureId={id} />
+      </div>
     </AppLayout>
   );
 }

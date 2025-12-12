@@ -6,7 +6,8 @@ function isPlan(value: unknown): value is Plan {
 }
 
 function isFeatureKey(value: unknown): value is FeatureKey {
-  return value === 'dashboard.advanced' || value === 'lure.breakdown' || value === 'ai.recommend';
+  // 簡易的なバリデーション
+  return value === 'dashboard.advanced' || value === 'lures.breakdown' || value === 'ai.recommend';
 }
 
 export async function getMe(): Promise<MeResponse> {

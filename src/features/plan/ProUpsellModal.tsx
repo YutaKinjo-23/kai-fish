@@ -17,7 +17,7 @@ export function ProUpsellModal({ isOpen, featureKey, onClose }: Props) {
         <p className="text-gray-600">
           この機能を利用するにはProプランへのアップグレードが必要です。
         </p>
-        {featureKey && <p className="text-xs text-gray-400">Feature: {featureKey}</p>}
+        {/* {featureKey && <p className="text-xs text-gray-400">Feature: {featureKey}</p>} */}
 
         <div className="flex flex-col gap-3 mt-4">
           <Link href="/settings" className="w-full">
