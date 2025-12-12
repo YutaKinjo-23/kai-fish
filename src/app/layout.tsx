@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   icons: {
     icon: '/kai-wave.svg',
   },
+  verification: {
+    google: 'yrQhj5xwDxmXR6YXUjFLxsJw796l3yHn-GHuQiu3Z58',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

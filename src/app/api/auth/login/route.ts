@@ -49,12 +49,9 @@ export async function POST(request: Request) {
     },
   });
 
-  // TODO: 本番環境をHTTPS化したら secure: true に変更すること
-  // 現状: 本番環境がHTTPのため secure: false で運用中
-  // HTTPSに対応後、secure: true に戻し、このコメントを削除する
   response.cookies.set(SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
-    secure: false,
+    secure: true,
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
