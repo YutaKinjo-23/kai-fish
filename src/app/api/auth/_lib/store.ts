@@ -1,5 +1,6 @@
 import { compare, hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import type { Plan } from '@/lib/plan/features';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
@@ -23,6 +24,10 @@ function normalizeStringArray(items?: string[]): string[] | undefined {
   if (!Array.isArray(items)) return undefined;
   const cleaned = items.map((item) => item.trim()).filter((item) => item.length > 0);
   return cleaned.length > 0 ? cleaned : undefined;
+}
+
+function normalizePlan(plan?: string | null): Plan {
+  return plan === 'pro' ? 'pro' : 'free';
 }
 
 export async function createUser(params: {
@@ -138,6 +143,7 @@ export async function getUserBySession(sessionId: string): Promise<{
   avatarUrl?: string | null;
   areas?: string[];
   targets?: string[];
+  plan: Plan;
 } | null> {
   const session = await getSession(sessionId);
   if (!session) return null;
@@ -151,6 +157,8 @@ export async function getUserBySession(sessionId: string): Promise<{
     return null;
   }
 
+  const plan = normalizePlan(user.plan);
+
   return {
     id: user.id,
     email: user.email,
@@ -158,6 +166,7 @@ export async function getUserBySession(sessionId: string): Promise<{
     avatarUrl: user.avatarUrl,
     areas: user.areas,
     targets: user.targets,
+    plan,
   };
 }
 

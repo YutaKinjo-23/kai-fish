@@ -11,6 +11,7 @@ model User {
   id           String       @id @default(cuid())
   email        String       @unique
   passwordHash String
+  plan         String       @default("free")
   displayName  String?
   avatarUrl    String?
   areas        String[]     // よく行くエリア
