@@ -100,12 +100,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     },
   });
 
+  // 新しい構造ではリグ情報はuseイベントに持つため、catchイベントと関連付けが必要
+  // ここでは直前のuseイベントのrigTypeを使用する
   const rigCounts = new Map<string, number>();
   logs.forEach((log) => {
     let currentRig: string | null = null;
     log.events.forEach((e) => {
-      if (e.type === 'setup') {
-        currentRig = e.rig || null;
+      if (e.type === 'use' && e.lureId === id) {
+        currentRig = e.rigType || null;
       }
       if (e.type === 'catch' && e.lureId === id) {
         if (currentRig && currentRig.trim().length > 0) {

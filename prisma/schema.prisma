@@ -88,7 +88,7 @@ model FishingEvent {
   id           String     @id @default(cuid())
   fishingLogId String
   fishingLog   FishingLog @relation(fields: [fishingLogId], references: [id], onDelete: Cascade)
-  // イベント種別: start, spot, setup, catch, end
+  // イベント種別: start, spot, setup, use, catch, end
   type         String
   // 時刻（HH:mm形式）
   time         String
@@ -98,14 +98,15 @@ model FishingEvent {
   area         String?
   spotName     String?
   // セットアップ情報（type: setup）
-  target       String?    // ターゲット魚種ID
-  targetSpeciesId String?
-  tackle       String?    // タックルセット名
-  tackleSetId  String?
-  rig          String?    // リグ種別
-  // 釣果情報（type: catch）
+  tackleSetId       String?          // タックルセットID
+  targetSpeciesIds  String[]  @default([])  // ターゲット魚種ID配列
+  // ルアー使用情報（type: use）
   lureId       String?
   lure         Lure?      @relation(fields: [lureId], references: [id], onDelete: SetNull)
+  color        String?    // カラー
+  rigType      String?    // リグ種別
+  rigWeight    Float?     // ウェイト（g）
+  // 釣果情報（type: catch）
   speciesId    String?    // 魚種ID
   sizeCm       Float?     // サイズ（cm）
   photoUrl     String?    // 写真URL

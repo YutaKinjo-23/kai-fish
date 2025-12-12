@@ -28,17 +28,22 @@ export interface FishingEventSpot extends FishingEventBase {
 // セットアップ変更イベント
 export interface FishingEventSetup extends FishingEventBase {
   type: 'setup';
-  target?: string | null;
-  targetSpeciesId?: string | null;
-  tackle?: string | null;
-  tackleSetId?: string | null;
-  rig?: string | null;
+  tackleSetId: string; // 必須: タックルセットID
+  targetSpeciesIds?: string[]; // 任意: ターゲット魚種ID配列
+}
+
+// リグ情報（ルアー使用イベント用）
+export interface LureRigInfo {
+  type: string; // リグ種別（テキサス、フリーリグなど）
+  weight: number; // ウェイト(g)
 }
 
 // 使用ルアーイベント（釣れなかったが使った）
 export interface FishingEventUse extends FishingEventBase {
   type: 'use';
-  lureId?: string | null;
+  lureId: string; // 必須: ルアーID
+  color?: string | null; // 任意: カラー
+  rig: LureRigInfo; // 必須: リグ情報
 }
 
 // 釣果イベント
@@ -48,6 +53,7 @@ export interface FishingEventCatch extends FishingEventBase {
   speciesId: string;
   sizeCm?: number | null;
   photoUrl?: string | null;
+  rig?: LureRigInfo | null; // 任意: リグ情報
 }
 
 // 終了イベント
@@ -72,12 +78,12 @@ export interface FishingEventData {
   order: number;
   area: string | null;
   spotName: string | null;
-  target: string | null;
-  targetSpeciesId: string | null;
-  tackle: string | null;
   tackleSetId: string | null;
-  rig: string | null;
+  targetSpeciesIds: string[] | null;
   lureId: string | null;
+  color: string | null;
+  rigType: string | null;
+  rigWeight: number | null;
   speciesId: string | null;
   sizeCm: number | null;
   photoUrl: string | null;
