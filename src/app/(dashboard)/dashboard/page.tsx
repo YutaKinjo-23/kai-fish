@@ -1,96 +1,142 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { useFeatures } from '@/features/me/useFeatures';
-import type { DashboardRange, DashboardResponse } from '@/types/dashboard';
+import { useHandlePlanForbidden } from '@/features/plan/useHandlePlanForbidden';
+import { fetchJson } from '@/lib/api/client';
+import type { DashboardResponse } from '@/types/dashboard';
 
-const RANGE_OPTIONS = [
+type DashboardAdvancedRange = 'month' | '3months' | 'all';
+
+type DashboardSummaryResponse = {
+  overview: DashboardResponse['overview'];
+  topAreas: DashboardResponse['topAreas'];
+  topLures: DashboardResponse['topLures'];
+  lureHitsTop: DashboardResponse['lureBar'];
+};
+
+type DashboardAdvancedResponse = {
+  range: DashboardAdvancedRange;
+  heatmap: DashboardResponse['heatmap'];
+  sizeHist: DashboardResponse['sizeHist'];
+  sizeUnknownCount: number;
+};
+
+function isDashboardAdvancedRange(value: string): value is DashboardAdvancedRange {
+  return value === 'month' || value === '3months' || value === 'all';
+}
+
+const ADVANCED_RANGE_OPTIONS = [
   { value: 'month', label: '今月' },
-  { value: 'last30', label: '直近30日' },
+  { value: '3months', label: '直近3ヶ月' },
   { value: 'all', label: '全期間' },
 ];
 
 export default function DashboardPage() {
-  const [range, setRange] = useState<DashboardRange>('month');
-  const [data, setData] = useState<DashboardResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
+  const [advanced, setAdvanced] = useState<DashboardAdvancedResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [advancedLoading, setAdvancedLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [advancedError, setAdvancedError] = useState<string | null>(null);
+  const [advancedRange, setAdvancedRange] = useState<DashboardAdvancedRange>('month');
   const { hasFeature } = useFeatures();
+  const handlePlanForbidden = useHandlePlanForbidden();
 
-  const fetchData = useCallback(async (r: DashboardRange) => {
-    setLoading(true);
-    setError(null);
+  const canUseAdvanced = hasFeature('dashboard.advanced');
+
+  const fetchSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
     try {
-      const res = await fetch(`/api/dashboard?range=${r}`);
-      if (!res.ok) {
-        throw new Error('データの取得に失敗しました。');
-      }
-      const json: DashboardResponse = await res.json();
-      setData(json);
+      const json = await fetchJson<DashboardSummaryResponse>('/api/dashboard/summary');
+      setSummary(json);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '不明なエラー');
+      setSummaryError(e instanceof Error ? e.message : '不明なエラー');
     } finally {
-      setLoading(false);
+      setSummaryLoading(false);
     }
   }, []);
 
+  const fetchAdvanced = useCallback(
+    async (r: DashboardAdvancedRange) => {
+      setAdvancedLoading(true);
+      setAdvancedError(null);
+      try {
+        const json = await fetchJson<DashboardAdvancedResponse>(
+          `/api/dashboard/advanced?range=${r}`
+        );
+        setAdvanced(json);
+      } catch (e) {
+        if (handlePlanForbidden(e)) {
+          setAdvanced(null);
+          return;
+        }
+        console.error(e);
+        setAdvancedError(e instanceof Error ? e.message : '不明なエラー');
+      } finally {
+        setAdvancedLoading(false);
+      }
+    },
+    [handlePlanForbidden]
+  );
+
   useEffect(() => {
-    fetchData(range);
-  }, [range, fetchData]);
+    fetchSummary();
+  }, [fetchSummary]);
+
+  useEffect(() => {
+    if (!canUseAdvanced) return;
+    fetchAdvanced(advancedRange);
+  }, [canUseAdvanced, advancedRange, fetchAdvanced]);
 
   return (
     <AppLayout pageTitle="ダッシュボード">
       <div className="space-y-6">
-        {/* 期間切り替え */}
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-gray-700">期間:</span>
-          <div className="w-40">
-            <Select
-              value={range}
-              onChange={(v) => setRange(v as DashboardRange)}
-              options={RANGE_OPTIONS}
-              placeholder="期間を選択"
-            />
-          </div>
-        </div>
-
         {/* ローディング/エラー */}
-        {loading && (
+        {summaryLoading && (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
           </div>
         )}
-        {error && <div className="bg-red-50 text-red-700 p-4 rounded-lg">{error}</div>}
+        {summaryError && (
+          <div className="bg-red-50 text-red-700 p-4 rounded-lg">{summaryError}</div>
+        )}
 
-        {data && !loading && (
+        {summary && !summaryLoading && (
           <>
             {/* 概要カード */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <OverviewCard
                 title="直近10回の平均ヒット"
                 value={
-                  data.overview.recentAvgHits !== null ? `${data.overview.recentAvgHits}` : '-'
+                  summary.overview.recentAvgHits !== null
+                    ? `${summary.overview.recentAvgHits}`
+                    : '-'
                 }
                 unit="匹/回"
               />
               <OverviewCard
                 title="直近10回の最大サイズ"
                 value={
-                  data.overview.recentMaxSize !== null ? `${data.overview.recentMaxSize}` : '-'
+                  summary.overview.recentMaxSize !== null
+                    ? `${summary.overview.recentMaxSize}`
+                    : '-'
                 }
                 unit="cm"
               />
               <OverviewCard
                 title="今月の釣行回数"
-                value={`${data.overview.monthTripCount}`}
+                value={`${summary.overview.monthTripCount}`}
                 unit="回"
               />
               <OverviewCard
                 title="今月の合計釣果"
-                value={`${data.overview.monthTotalHits}`}
+                value={`${summary.overview.monthTotalHits}`}
                 unit="匹"
               />
             </div>
@@ -102,11 +148,11 @@ export default function DashboardPage() {
                   <h3 className="text-lg font-semibold">エリアTOP3</h3>
                 </CardHeader>
                 <CardContent>
-                  {data.topAreas.length === 0 ? (
+                  {summary.topAreas.length === 0 ? (
                     <p className="text-gray-500 text-sm">データがありません</p>
                   ) : (
                     <ul className="space-y-2">
-                      {data.topAreas.map((item, i) => (
+                      {summary.topAreas.map((item, i) => (
                         <li key={item.area} className="flex justify-between items-center">
                           <span className="flex items-center gap-2">
                             <span className="text-lg font-bold text-brand-primary">{i + 1}</span>
@@ -125,11 +171,11 @@ export default function DashboardPage() {
                   <h3 className="text-lg font-semibold">ルアーTOP3</h3>
                 </CardHeader>
                 <CardContent>
-                  {data.topLures.length === 0 ? (
+                  {summary.topLures.length === 0 ? (
                     <p className="text-gray-500 text-sm">データがありません</p>
                   ) : (
                     <ul className="space-y-2">
-                      {data.topLures.map((item, i) => (
+                      {summary.topLures.map((item, i) => (
                         <li key={item.lureId} className="flex justify-between items-center gap-2">
                           <span className="flex items-center gap-2 min-w-0 flex-1">
                             <span className="text-lg font-bold text-brand-primary flex-shrink-0">
@@ -157,33 +203,104 @@ export default function DashboardPage() {
 
             {/* グラフ */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* ヒートマップ */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <h3 className="text-lg font-semibold">時間帯×ヒット数ヒートマップ</h3>
-                </CardHeader>
-                <CardContent>
-                  <HeatmapChart data={data.heatmap} />
-                </CardContent>
-              </Card>
-
-              {/* ルアー別ヒット棒グラフ */}
+              {/* ルアー別ヒット数（上位3・全期間固定） */}
               <Card>
                 <CardHeader>
                   <h3 className="text-lg font-semibold">ルアー別ヒット数</h3>
                 </CardHeader>
                 <CardContent>
-                  <LureBarChart data={data.lureBar} />
+                  <LureBarChart data={summary.lureHitsTop} />
                 </CardContent>
               </Card>
 
-              {/* サイズ分布ヒストグラム */}
+              {/* Pro領域: ヒートマップ */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <h3 className="text-lg font-semibold">時間帯×ヒット数ヒートマップ</h3>
+                </CardHeader>
+                <CardContent>
+                  {canUseAdvanced && (
+                    <div className="flex items-center gap-4 mb-4">
+                      <span className="text-sm font-medium text-gray-700">期間:</span>
+                      <div className="w-44">
+                        <Select
+                          value={advancedRange}
+                          onChange={(v) => {
+                            if (isDashboardAdvancedRange(v)) {
+                              setAdvancedRange(v);
+                            }
+                          }}
+                          options={ADVANCED_RANGE_OPTIONS}
+                          placeholder="期間を選択"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {!canUseAdvanced && (
+                    <div className="space-y-3">
+                      <p className="text-gray-600 text-sm">
+                        Proにアップグレードすると、期間別の傾向や詳細な分析が確認できます
+                      </p>
+                      <Link href="/settings/billing" className="text-brand-primary font-semibold">
+                        Proで詳細を見る
+                      </Link>
+                    </div>
+                  )}
+
+                  {canUseAdvanced && advancedLoading && (
+                    <div className="flex items-center justify-center py-10">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-primary"></div>
+                    </div>
+                  )}
+
+                  {canUseAdvanced && advancedError && (
+                    <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+                      {advancedError}
+                    </div>
+                  )}
+
+                  {canUseAdvanced && !advancedLoading && !advancedError && advanced && (
+                    <HeatmapChart data={advanced.heatmap} />
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Pro領域: サイズ分布 */}
               <Card>
                 <CardHeader>
                   <h3 className="text-lg font-semibold">サイズ分布</h3>
                 </CardHeader>
                 <CardContent>
-                  <SizeHistogram data={data.sizeHist} unknownCount={data.meta.sizeUnknownCount} />
+                  {!canUseAdvanced && (
+                    <div className="space-y-3">
+                      <p className="text-gray-600 text-sm">
+                        Proにアップグレードすると、期間別の傾向や詳細な分析が確認できます
+                      </p>
+                      <Link href="/settings/billing" className="text-brand-primary font-semibold">
+                        Proで詳細を見る
+                      </Link>
+                    </div>
+                  )}
+
+                  {canUseAdvanced && advancedLoading && (
+                    <div className="flex items-center justify-center py-10">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-primary"></div>
+                    </div>
+                  )}
+
+                  {canUseAdvanced && advancedError && (
+                    <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+                      {advancedError}
+                    </div>
+                  )}
+
+                  {canUseAdvanced && !advancedLoading && !advancedError && advanced && (
+                    <SizeHistogram
+                      data={advanced.sizeHist}
+                      unknownCount={advanced.sizeUnknownCount}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </div>
