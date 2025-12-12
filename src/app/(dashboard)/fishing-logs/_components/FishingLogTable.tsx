@@ -49,25 +49,25 @@ export function FishingLogTable({ logs, onRowClick }: FishingLogTableProps) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               日付
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               釣り場
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               時間
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">
               ターゲット
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              タックルセット
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">
+              タックル
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               釣果
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">
               メモ
             </th>
           </tr>
@@ -91,10 +91,10 @@ export function FishingLogTable({ logs, onRowClick }: FishingLogTableProps) {
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                 {formatTime(log.startTime, log.endTime)}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                 {log.mainTarget || '-'}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">
                 {log.tackleSetName || '-'}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm">
@@ -106,7 +106,7 @@ export function FishingLogTable({ logs, onRowClick }: FishingLogTableProps) {
                   {formatCatchSummary(log.totalCatch, log.maxSize)}
                 </span>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-center">
+              <td className="px-4 py-3 whitespace-nowrap text-center hidden sm:table-cell">
                 {log.hasMemo && <FileText className="w-4 h-4 text-gray-400 inline-block" />}
               </td>
             </tr>

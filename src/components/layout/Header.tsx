@@ -36,7 +36,7 @@ export function Header({ title, onMenuClick, avatarUrl }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 lg:px-6">
+    <header className="sticky top-0 z-40 h-16 bg-white shadow-sm flex items-center justify-between px-4 lg:px-6">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}

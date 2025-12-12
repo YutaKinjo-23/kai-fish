@@ -29,11 +29,11 @@ export function AppLayout({ children, pageTitle }: AppLayoutProps) {
   }, []);
 
   return (
-    <div className="flex w-full min-h-screen bg-brand-bg">
+    <div className="flex w-full min-h-dvh bg-brand-bg">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex flex-col flex-1 lg:ml-60 overflow-y-auto">
+      <div className="flex flex-col flex-1 lg:ml-60 h-dvh">
         <Header title={pageTitle} onMenuClick={() => setSidebarOpen(true)} avatarUrl={avatarUrl} />
-        <main className="p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );
