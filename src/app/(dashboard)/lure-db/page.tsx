@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import {
-  LURE_DB_PRESETS,
   SEASONS,
   TIDES,
   TIME_ZONES,
@@ -30,12 +28,10 @@ interface MeResponse {
 }
 
 export default function LureDBPage() {
-  const router = useRouter();
   const [userAreas, setUserAreas] = useState<string[]>([]);
   const [lures, setLures] = useState<LureListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [presetId, setPresetId] = useState('');
   const [q, setQ] = useState('');
   const [area, setArea] = useState('');
   const [timeZone, setTimeZone] = useState('');
@@ -89,35 +85,15 @@ export default function LureDBPage() {
     fetchLures();
   }, [q, area, timeZone, season, tide, waterQuality]);
 
-  const applyPreset = (id: string) => {
-    setPresetId(id);
-    const preset = LURE_DB_PRESETS.find((p) => p.id === id);
-    if (!preset) return;
-    setArea(preset.filter.area || '');
-    setTimeZone(preset.filter.timeZone || '');
-  };
-
   return (
     <AppLayout pageTitle="ルアー図鑑">
       <Card>
         <CardHeader>
           <h2>ルアー図鑑</h2>
-          <Button size="sm" onClick={() => router.push('/tackle-box')}>
-            新規追加
-          </Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">プリセット</label>
-                <Select
-                  value={presetId}
-                  onChange={(value) => applyPreset(value)}
-                  options={LURE_DB_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
-                  placeholder="プリセットを選択"
-                />
-              </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">検索</label>
                 <Input
@@ -184,7 +160,6 @@ export default function LureDBPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setPresetId('');
                     setQ('');
                     setArea('');
                     setTimeZone('');
