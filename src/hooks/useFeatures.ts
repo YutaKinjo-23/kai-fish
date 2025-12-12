@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { FeatureKey, Plan } from '@/lib/plan/features';
+import { useMe } from '@/features/me/useMe';
 
 interface MeResponse {
   id: string;
@@ -35,38 +36,9 @@ interface UseFeaturesResult {
  * ```
  */
 export function useFeatures(): UseFeaturesResult {
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [features, setFeatures] = useState<FeatureKey[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchMe = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/me');
-      if (!res.ok) {
-        if (res.status === 401) {
-          // 未認証はエラーではなく、単にfeatureなし
-          setPlan(null);
-          setFeatures([]);
-          return;
-        }
-        throw new Error('Failed to fetch user info');
-      }
-      const data = (await res.json()) as MeResponse;
-      setPlan(data.plan);
-      setFeatures(data.features);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMe();
-  }, [fetchMe]);
+  const { me, loading, error, refetch } = useMe();
+  const plan = me?.plan ?? null;
+  const features = me?.features ?? [];
 
   const hasFeature = useCallback(
     (featureKey: FeatureKey): boolean => {
@@ -81,6 +53,6 @@ export function useFeatures(): UseFeaturesResult {
     loading,
     error,
     hasFeature,
-    refetch: fetchMe,
+    refetch,
   };
 }

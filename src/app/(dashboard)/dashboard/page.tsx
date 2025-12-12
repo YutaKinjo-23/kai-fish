@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
+import { useFeatures } from '@/features/me/useFeatures';
 import type { DashboardRange, DashboardResponse } from '@/types/dashboard';
 
 const RANGE_OPTIONS = [
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { hasFeature } = useFeatures();
 
   const fetchData = useCallback(async (r: DashboardRange) => {
     setLoading(true);
@@ -53,6 +55,9 @@ export default function DashboardPage() {
               placeholder="期間を選択"
             />
           </div>
+          <span className="text-xs text-gray-500">
+            Pro機能(dashboard.advanced): {hasFeature('dashboard.advanced') ? 'ON' : 'OFF'}
+          </span>
         </div>
 
         {/* ローディング/エラー */}
