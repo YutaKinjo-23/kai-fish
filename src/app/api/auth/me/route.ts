@@ -14,10 +14,9 @@ export async function GET() {
   if (!user) {
     const response = NextResponse.json({ error: 'セッションが無効です。' }, { status: 401 });
 
-    // TODO: 本番環境をHTTPS化したら secure: true に変更すること
     response.cookies.set(SESSION_COOKIE_NAME, '', {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: 'lax',
       path: '/',
       maxAge: 0,
