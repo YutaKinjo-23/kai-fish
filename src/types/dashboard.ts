@@ -19,6 +19,14 @@ export interface TopAreaItem {
   hitCount: number;
 }
 
+// スポットTOP
+export interface TopSpotItem {
+  area: string;
+  spotName: string;
+  hitCount: number;
+  visitCount?: number;
+}
+
 // ルアーTOP
 export interface TopLureItem {
   lureId: string;
@@ -51,6 +59,7 @@ export interface DashboardMeta {
 export interface DashboardResponse {
   overview: DashboardOverview;
   topAreas: TopAreaItem[];
+  topSpots: TopSpotItem[];
   topLures: TopLureItem[];
   heatmap: HeatmapData;
   lureBar: TopLureItem[];

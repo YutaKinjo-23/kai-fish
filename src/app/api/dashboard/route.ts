@@ -7,6 +7,7 @@ import type {
   DashboardResponse,
   DashboardOverview,
   TopAreaItem,
+  TopSpotItem,
   TopLureItem,
   HeatmapData,
   SizeHistItem,
@@ -247,6 +248,81 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([area, hitCount]) => ({ area, hitCount }));
+
+  // ===== スポット推定（catchに最も近いspotのarea+spotName） =====
+  const getSpotForCatch = (
+    logEvents: EventRow[],
+    catchOrder: number
+  ): { area: string; spotName: string } => {
+    const spotEvents = logEvents
+      .filter((e) => e.type === 'spot' && (e.area || e.spotName))
+      .filter((e) => e.order <= catchOrder);
+    if (spotEvents.length === 0) return { area: '(未設定)', spotName: '' };
+    const nearest = spotEvents.reduce((a, b) => (a.order > b.order ? a : b));
+    return {
+      area: nearest.area ?? '(未設定)',
+      spotName: nearest.spotName ?? '',
+    };
+  };
+
+  // ===== スポットTOP3（訪問回数とヒット数の両方を集計） =====
+  const spotStatsMap = new Map<
+    string,
+    { area: string; spotName: string; hitCount: number; visitCount: number }
+  >();
+
+  for (const log of fishingLogs) {
+    const logEvents = allEvents.filter((e) => e.fishingLog.id === log.id);
+
+    // スポット訪問をカウント（spotイベントごとに1回）
+    const spotEvents = logEvents.filter((e) => e.type === 'spot' && (e.area || e.spotName));
+    for (const s of spotEvents) {
+      const key = `${s.area ?? '(未設定)'}|||${s.spotName ?? ''}`;
+      const existing = spotStatsMap.get(key);
+      if (existing) {
+        existing.visitCount += 1;
+      } else {
+        spotStatsMap.set(key, {
+          area: s.area ?? '(未設定)',
+          spotName: s.spotName ?? '',
+          hitCount: 0,
+          visitCount: 1,
+        });
+      }
+    }
+
+    // ヒット数をカウント（catchイベントに紐づくスポット）
+    const catchEvents = logEvents.filter((e) => e.type === 'catch');
+    for (const c of catchEvents) {
+      const spot = getSpotForCatch(logEvents, c.order);
+      const key = `${spot.area}|||${spot.spotName}`;
+      const existing = spotStatsMap.get(key);
+      if (existing) {
+        existing.hitCount += 1;
+      } else {
+        spotStatsMap.set(key, {
+          area: spot.area,
+          spotName: spot.spotName,
+          hitCount: 1,
+          visitCount: 0,
+        });
+      }
+    }
+  }
+
+  const topSpots: TopSpotItem[] = Array.from(spotStatsMap.values())
+    .sort((a, b) => {
+      // まずヒット数で降順、同じならvisitCountで降順
+      if (b.hitCount !== a.hitCount) return b.hitCount - a.hitCount;
+      return b.visitCount - a.visitCount;
+    })
+    .slice(0, 3)
+    .map(({ area, spotName, hitCount, visitCount }) => ({
+      area,
+      spotName,
+      hitCount,
+      visitCount,
+    }));
 
   // ===== ルアー集計 =====
   // 使用回数の定義: useイベントの後に同じルアーでcatchがあった場合は1回としてカウント
@@ -507,6 +583,7 @@ export async function GET(request: NextRequest) {
   const response: DashboardResponse = {
     overview,
     topAreas,
+    topSpots,
     topLures,
     heatmap,
     lureBar,

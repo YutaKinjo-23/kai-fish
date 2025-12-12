@@ -15,6 +15,7 @@ type DashboardAdvancedRange = 'month' | '3months' | 'all';
 type DashboardSummaryResponse = {
   overview: DashboardResponse['overview'];
   topAreas: DashboardResponse['topAreas'];
+  topSpots: DashboardResponse['topSpots'];
   topLures: DashboardResponse['topLures'];
   lureHitsTop: DashboardResponse['lureBar'];
 };
@@ -141,7 +142,7 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* TOP3エリア・ルアー */}
+            {/* TOP3エリア・スポット */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
@@ -166,6 +167,46 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold">スポットTOP3</h3>
+                </CardHeader>
+                <CardContent>
+                  {summary.topSpots.length === 0 ? (
+                    <p className="text-gray-500 text-sm">データがありません</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {summary.topSpots.map((item, i) => (
+                        <li
+                          key={`${item.area}-${item.spotName}`}
+                          className="flex justify-between items-center gap-2"
+                        >
+                          <span className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-lg font-bold text-brand-primary flex-shrink-0">
+                              {i + 1}
+                            </span>
+                            <span className="truncate" title={`${item.area} ${item.spotName}`}>
+                              {item.spotName || item.area}
+                            </span>
+                          </span>
+                          <span className="font-semibold whitespace-nowrap flex-shrink-0">
+                            {item.hitCount}匹
+                            {item.visitCount !== undefined && (
+                              <span className="text-gray-500 text-sm ml-1">
+                                ({item.visitCount}回)
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ルアーTOP3・ルアー別ヒット数 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
                   <h3 className="text-lg font-semibold">ルアーTOP3</h3>
@@ -199,10 +240,7 @@ export default function DashboardPage() {
                   )}
                 </CardContent>
               </Card>
-            </div>
 
-            {/* グラフ */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* ルアー別ヒット数（上位3・全期間固定） */}
               <Card>
                 <CardHeader>
@@ -212,98 +250,98 @@ export default function DashboardPage() {
                   <LureBarChart data={summary.lureHitsTop} />
                 </CardContent>
               </Card>
-
-              {/* Pro領域: ヒートマップ */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <h3 className="text-lg font-semibold">時間帯×ヒット数ヒートマップ</h3>
-                </CardHeader>
-                <CardContent>
-                  {canUseAdvanced && (
-                    <div className="flex items-center gap-4 mb-4">
-                      <span className="text-sm font-medium text-gray-700">期間:</span>
-                      <div className="w-44">
-                        <Select
-                          value={advancedRange}
-                          onChange={(v) => {
-                            if (isDashboardAdvancedRange(v)) {
-                              setAdvancedRange(v);
-                            }
-                          }}
-                          options={ADVANCED_RANGE_OPTIONS}
-                          placeholder="期間を選択"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {!canUseAdvanced && (
-                    <div className="space-y-3">
-                      <p className="text-gray-600 text-sm">
-                        Proにアップグレードすると、期間別の傾向や詳細な分析が確認できます
-                      </p>
-                      <Link href="/settings/billing" className="text-brand-primary font-semibold">
-                        Proで詳細を見る
-                      </Link>
-                    </div>
-                  )}
-
-                  {canUseAdvanced && advancedLoading && (
-                    <div className="flex items-center justify-center py-10">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-primary"></div>
-                    </div>
-                  )}
-
-                  {canUseAdvanced && advancedError && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
-                      {advancedError}
-                    </div>
-                  )}
-
-                  {canUseAdvanced && !advancedLoading && !advancedError && advanced && (
-                    <HeatmapChart data={advanced.heatmap} />
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Pro領域: サイズ分布 */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold">サイズ分布</h3>
-                </CardHeader>
-                <CardContent>
-                  {!canUseAdvanced && (
-                    <div className="space-y-3">
-                      <p className="text-gray-600 text-sm">
-                        Proにアップグレードすると、期間別の傾向や詳細な分析が確認できます
-                      </p>
-                      <Link href="/settings/billing" className="text-brand-primary font-semibold">
-                        Proで詳細を見る
-                      </Link>
-                    </div>
-                  )}
-
-                  {canUseAdvanced && advancedLoading && (
-                    <div className="flex items-center justify-center py-10">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-primary"></div>
-                    </div>
-                  )}
-
-                  {canUseAdvanced && advancedError && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
-                      {advancedError}
-                    </div>
-                  )}
-
-                  {canUseAdvanced && !advancedLoading && !advancedError && advanced && (
-                    <SizeHistogram
-                      data={advanced.sizeHist}
-                      unknownCount={advanced.sizeUnknownCount}
-                    />
-                  )}
-                </CardContent>
-              </Card>
             </div>
+
+            {/* Pro領域: ヒートマップ */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">時間帯×ヒット数ヒートマップ</h3>
+              </CardHeader>
+              <CardContent>
+                {canUseAdvanced && (
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="text-sm font-medium text-gray-700">期間:</span>
+                    <div className="w-44">
+                      <Select
+                        value={advancedRange}
+                        onChange={(v) => {
+                          if (isDashboardAdvancedRange(v)) {
+                            setAdvancedRange(v);
+                          }
+                        }}
+                        options={ADVANCED_RANGE_OPTIONS}
+                        placeholder="期間を選択"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {!canUseAdvanced && (
+                  <div className="space-y-3">
+                    <p className="text-gray-600 text-sm">
+                      Proにアップグレードすると、期間別の傾向や詳細な分析が確認できます
+                    </p>
+                    <Link href="/settings/billing" className="text-brand-primary font-semibold">
+                      Proで詳細を見る
+                    </Link>
+                  </div>
+                )}
+
+                {canUseAdvanced && advancedLoading && (
+                  <div className="flex items-center justify-center py-10">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-primary"></div>
+                  </div>
+                )}
+
+                {canUseAdvanced && advancedError && (
+                  <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+                    {advancedError}
+                  </div>
+                )}
+
+                {canUseAdvanced && !advancedLoading && !advancedError && advanced && (
+                  <HeatmapChart data={advanced.heatmap} />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Pro領域: サイズ分布 */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">サイズ分布</h3>
+              </CardHeader>
+              <CardContent>
+                {!canUseAdvanced && (
+                  <div className="space-y-3">
+                    <p className="text-gray-600 text-sm">
+                      Proにアップグレードすると、期間別の傾向や詳細な分析が確認できます
+                    </p>
+                    <Link href="/settings/billing" className="text-brand-primary font-semibold">
+                      Proで詳細を見る
+                    </Link>
+                  </div>
+                )}
+
+                {canUseAdvanced && advancedLoading && (
+                  <div className="flex items-center justify-center py-10">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-primary"></div>
+                  </div>
+                )}
+
+                {canUseAdvanced && advancedError && (
+                  <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+                    {advancedError}
+                  </div>
+                )}
+
+                {canUseAdvanced && !advancedLoading && !advancedError && advanced && (
+                  <SizeHistogram
+                    data={advanced.sizeHist}
+                    unknownCount={advanced.sizeUnknownCount}
+                  />
+                )}
+              </CardContent>
+            </Card>
 
             {/* 注釈 */}
             <div className="text-xs text-gray-500 space-y-1">

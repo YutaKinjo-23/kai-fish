@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/api/guards';
-import type { DashboardOverview, TopAreaItem, TopLureItem } from '@/types/dashboard';
+import type { DashboardOverview, TopAreaItem, TopSpotItem, TopLureItem } from '@/types/dashboard';
 
 // 今月の範囲を取得
 function getThisMonthRange(): { from: Date; to: Date } {
@@ -26,6 +26,7 @@ function buildLureLabel(
 type DashboardSummaryResponse = {
   overview: DashboardOverview;
   topAreas: TopAreaItem[];
+  topSpots: TopSpotItem[];
   topLures: TopLureItem[];
   lureHitsTop: TopLureItem[];
 };
@@ -34,6 +35,7 @@ type EventRow = {
   type: string;
   order: number;
   area: string | null;
+  spotName: string | null;
   lureId: string | null;
   lure: {
     id: string;
@@ -130,6 +132,22 @@ export async function GET() {
       return nearest.area ?? '(未設定)';
     };
 
+    // ===== スポット推定（catchに最も近いspotのarea+spotName） =====
+    const getSpotForCatch = (
+      logEvents: EventRow[],
+      catchOrder: number
+    ): { area: string; spotName: string } => {
+      const spotEvents = logEvents
+        .filter((e) => e.type === 'spot' && (e.area || e.spotName))
+        .filter((e) => e.order <= catchOrder);
+      if (spotEvents.length === 0) return { area: '(未設定)', spotName: '' };
+      const nearest = spotEvents.reduce((a, b) => (a.order > b.order ? a : b));
+      return {
+        area: nearest.area ?? '(未設定)',
+        spotName: nearest.spotName ?? '',
+      };
+    };
+
     // ===== エリアTOP3 =====
     const areaHitMap = new Map<string, number>();
     for (const log of fishingLogs) {
@@ -137,6 +155,7 @@ export async function GET() {
         type: e.type,
         order: e.order,
         area: e.area,
+        spotName: e.spotName,
         lureId: e.lureId,
         lure: e.lure,
         sizeCm: e.sizeCm,
@@ -153,6 +172,73 @@ export async function GET() {
       .slice(0, 3)
       .map(([area, hitCount]) => ({ area, hitCount }));
 
+    // ===== スポットTOP3（訪問回数とヒット数の両方を集計） =====
+    const spotStatsMap = new Map<
+      string,
+      { area: string; spotName: string; hitCount: number; visitCount: number }
+    >();
+
+    for (const log of fishingLogs) {
+      const logEvents: EventRow[] = log.events.map((e) => ({
+        type: e.type,
+        order: e.order,
+        area: e.area,
+        spotName: e.spotName,
+        lureId: e.lureId,
+        lure: e.lure,
+        sizeCm: e.sizeCm,
+      }));
+
+      // スポット訪問をカウント（spotイベントごとに1回）
+      const spotEvents = logEvents.filter((e) => e.type === 'spot' && (e.area || e.spotName));
+      for (const s of spotEvents) {
+        const key = `${s.area ?? '(未設定)'}|||${s.spotName ?? ''}`;
+        const existing = spotStatsMap.get(key);
+        if (existing) {
+          existing.visitCount += 1;
+        } else {
+          spotStatsMap.set(key, {
+            area: s.area ?? '(未設定)',
+            spotName: s.spotName ?? '',
+            hitCount: 0,
+            visitCount: 1,
+          });
+        }
+      }
+
+      // ヒット数をカウント（catchイベントに紐づくスポット）
+      const catchEvents = logEvents.filter((e) => e.type === 'catch');
+      for (const c of catchEvents) {
+        const spot = getSpotForCatch(logEvents, c.order);
+        const key = `${spot.area}|||${spot.spotName}`;
+        const existing = spotStatsMap.get(key);
+        if (existing) {
+          existing.hitCount += 1;
+        } else {
+          spotStatsMap.set(key, {
+            area: spot.area,
+            spotName: spot.spotName,
+            hitCount: 1,
+            visitCount: 0,
+          });
+        }
+      }
+    }
+
+    const topSpots: TopSpotItem[] = Array.from(spotStatsMap.values())
+      .sort((a, b) => {
+        // まずヒット数で降順、同じならvisitCountで降順
+        if (b.hitCount !== a.hitCount) return b.hitCount - a.hitCount;
+        return b.visitCount - a.visitCount;
+      })
+      .slice(0, 3)
+      .map(({ area, spotName, hitCount, visitCount }) => ({
+        area,
+        spotName,
+        hitCount,
+        visitCount,
+      }));
+
     // ===== ルアー集計 =====
     const lureHitMap = new Map<
       string,
@@ -164,6 +250,7 @@ export async function GET() {
         type: e.type,
         order: e.order,
         area: e.area,
+        spotName: e.spotName,
         lureId: e.lureId,
         lure: e.lure,
         sizeCm: e.sizeCm,
@@ -233,6 +320,7 @@ export async function GET() {
     const response: DashboardSummaryResponse = {
       overview,
       topAreas,
+      topSpots,
       topLures,
       lureHitsTop,
     };
