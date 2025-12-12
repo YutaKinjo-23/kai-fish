@@ -7,12 +7,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import {
-  SEASONS,
-  TIDES,
-  TIME_ZONES,
-  WATER_QUALITIES,
-} from './_lib/lure-conditions';
+import { SEASONS, TIDES, TIME_ZONES, WATER_QUALITIES } from './_lib/lure-conditions';
 import type { Lure } from '@/types/tackle';
 
 interface LureListItem extends Lure {
