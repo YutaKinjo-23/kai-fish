@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { FeatureKey, Plan } from '@/lib/plan/features';
 import { useMe } from '@/features/me/useMe';
 
@@ -38,7 +38,7 @@ interface UseFeaturesResult {
 export function useFeatures(): UseFeaturesResult {
   const { me, loading, error, refetch } = useMe();
   const plan = me?.plan ?? null;
-  const features = me?.features ?? [];
+  const features = useMemo(() => me?.features ?? [], [me?.features]);
 
   const hasFeature = useCallback(
     (featureKey: FeatureKey): boolean => {

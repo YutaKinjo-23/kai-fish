@@ -55,9 +55,6 @@ export default function DashboardPage() {
               placeholder="期間を選択"
             />
           </div>
-          <span className="text-xs text-gray-500">
-            Pro機能(dashboard.advanced): {hasFeature('dashboard.advanced') ? 'ON' : 'OFF'}
-          </span>
         </div>
 
         {/* ローディング/エラー */}
