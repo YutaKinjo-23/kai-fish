@@ -155,6 +155,18 @@ export default function LoginPage() {
                 <span>してください。</span>
               </span>
             </p>
+
+            <p className="text-center text-xs text-slate-500">
+              ログインすることで、
+              <Link href="/terms" className="text-[#0077FF] hover:underline">
+                利用規約
+              </Link>
+              および
+              <Link href="/privacy" className="text-[#0077FF] hover:underline">
+                プライバシーポリシー
+              </Link>
+              に同意したものとみなします。
+            </p>
           </form>
         </AuthCard>
       </div>

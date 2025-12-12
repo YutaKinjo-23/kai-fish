@@ -756,6 +756,7 @@ export function FishingLogFormModal({
                 activeSpotIndex={activeSpotIndex}
                 setActiveSpotIndex={setActiveSpotIndex}
                 fetchSpots={fetchSpots}
+                allEvents={formData.events}
               />
             )}
 
@@ -1159,6 +1160,7 @@ interface SpotEventFieldsProps {
   activeSpotIndex: number | null;
   setActiveSpotIndex: (index: number | null) => void;
   fetchSpots: (area: string) => Promise<void>;
+  allEvents: FishingEvent[]; // 同一釣行内の全イベント
 }
 
 function SpotEventFields({
@@ -1177,9 +1179,17 @@ function SpotEventFields({
   activeSpotIndex,
   setActiveSpotIndex,
   fetchSpots,
+  allEvents,
 }: SpotEventFieldsProps) {
   const areaContainerRef = useRef<HTMLDivElement>(null);
   const spotContainerRef = useRef<HTMLDivElement>(null);
+  const [areaValidationError, setAreaValidationError] = useState<string | null>(null);
+
+  // 都道府県が含まれているかチェック
+  const hasPrefecture = (text: string): boolean => {
+    if (!text) return false;
+    return /北海道|.+[都府県]/.test(text);
+  };
 
   // エリア変更時にスポット候補を取得
   useEffect(() => {
@@ -1204,6 +1214,7 @@ function SpotEventFields({
 
   const handleAreaChange = (value: string) => {
     updateEvent<FishingEventSpot>(index, { area: value });
+    setAreaValidationError(null);
     if (areaSearchTimeoutRef.current) {
       clearTimeout(areaSearchTimeoutRef.current);
     }
@@ -1212,11 +1223,47 @@ function SpotEventFields({
     }, 300);
   };
 
+  const handleAreaBlur = (e: React.FocusEvent) => {
+    // ドロップダウン内のクリックの場合は無視
+    if (areaContainerRef.current?.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    // 値が入力されているが都道府県が含まれていない場合
+    if (event.area && !hasPrefecture(event.area)) {
+      updateEvent<FishingEventSpot>(index, { area: '' });
+      setAreaValidationError('都道府県を含めて選択してください');
+    }
+    // ドロップダウンを閉じる
+    setTimeout(() => {
+      setActiveAreaIndex(null);
+    }, 150);
+  };
+
   const filteredUserAreas = userAreas.filter(
     (area) => !event.area || area.toLowerCase().includes(event.area.toLowerCase())
   );
 
-  const filteredSpots = spotSuggestions.filter(
+  // 同一釣行内のスポットイベントからスポットを収集（同じエリアのもの）
+  const spotsFromCurrentLog = allEvents
+    .filter((e): e is FishingEventSpot => e.type === 'spot' && e.spotName !== '')
+    .filter((e) => {
+      // 同じエリアか部分一致するエリアのスポットを含める
+      if (!event.area || !e.area) return false;
+      const currentCity = event.area.match(/[都道府県]\s*(.+)/)?.[1] || event.area;
+      const spotCity = e.area.match(/[都道府県]\s*(.+)/)?.[1] || e.area;
+      return (
+        currentCity === spotCity || e.area.includes(currentCity) || currentCity.includes(spotCity)
+      );
+    })
+    .map((e) => ({ id: `local-${e.spotName}`, name: e.spotName }));
+
+  // DBからの候補と同一釣行内のスポットをマージ（重複除去）
+  const allSpotSuggestions = [
+    ...spotsFromCurrentLog,
+    ...spotSuggestions.filter((s) => !spotsFromCurrentLog.some((local) => local.name === s.name)),
+  ];
+
+  const filteredSpots = allSpotSuggestions.filter(
     (spot) => !event.spotName || spot.name.toLowerCase().includes(event.spotName.toLowerCase())
   );
 
@@ -1231,13 +1278,17 @@ function SpotEventFields({
             value={event.area}
             onChange={(e) => handleAreaChange(e.target.value)}
             onFocus={() => setActiveAreaIndex(index)}
+            onBlur={handleAreaBlur}
             placeholder="例: 神奈川県 川崎市多摩区"
-            className="block w-full px-3 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+            className={`block w-full px-3 py-2 pr-8 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary ${
+              areaValidationError ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
           {isSearchingArea && activeAreaIndex === index && (
             <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
           )}
         </div>
+        {areaValidationError && <p className="mt-1 text-xs text-red-500">{areaValidationError}</p>}
         {activeAreaIndex === index &&
           (filteredUserAreas.length > 0 || areaSuggestions.length > 0) && (
             <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -1335,6 +1386,9 @@ function SpotEventFields({
             )}
           </div>
         )}
+        <p className="mt-1 text-xs text-gray-400">
+          ※ エリア、スポットが外部に公開されることはありません
+        </p>
       </div>
     </div>
   );
