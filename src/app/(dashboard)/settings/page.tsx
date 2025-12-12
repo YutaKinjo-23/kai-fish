@@ -36,6 +36,7 @@ export default function SettingsPage() {
   const [areaSuggestions, setAreaSuggestions] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [areaValidationError, setAreaValidationError] = useState<string | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -108,10 +109,17 @@ export default function SettingsPage() {
     }
   }, []);
 
+  // 都道府県が含まれているかチェック
+  const hasPrefecture = (text: string): boolean => {
+    if (!text) return false;
+    return /北海道|.+[都府県]/.test(text);
+  };
+
   // 入力変更時のデバウンス処理
   const handleAreaInputChange = (value: string) => {
     setAreaInput(value);
     setShowSuggestions(true);
+    setAreaValidationError(null);
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -120,6 +128,23 @@ export default function SettingsPage() {
     searchTimeoutRef.current = setTimeout(() => {
       searchAreas(value);
     }, 300);
+  };
+
+  // エリア入力欄のフォーカスアウト処理
+  const handleAreaBlur = (e: React.FocusEvent) => {
+    // ドロップダウン内のクリックの場合は無視
+    if (containerRef.current?.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    // 値が入力されているが都道府県が含まれていない場合
+    if (areaInput && !hasPrefecture(areaInput)) {
+      setAreaInput('');
+      setAreaValidationError('候補から選択してください');
+    }
+    // ドロップダウンを閉じる
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 150);
   };
 
   // 候補を選択
@@ -347,7 +372,7 @@ export default function SettingsPage() {
             {/* よく行くエリア */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                よく行くエリア（複数選択可）
+                よく行くエリア（市区郡・複数選択可）
               </label>
 
               {/* 選択済みエリア */}
@@ -392,9 +417,15 @@ export default function SettingsPage() {
                   onChange={(e) => handleAreaInputChange(e.target.value)}
                   onKeyDown={handleAreaKeyDown}
                   onFocus={() => areaInput.length >= 2 && setShowSuggestions(true)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+                  onBlur={handleAreaBlur}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent ${
+                    areaValidationError ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="地名を入力して検索（2文字以上）"
                 />
+                {areaValidationError && (
+                  <p className="mt-1 text-xs text-red-500">{areaValidationError}</p>
+                )}
                 {isSearching && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <svg
@@ -437,7 +468,10 @@ export default function SettingsPage() {
                 )}
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                2文字以上入力で候補を検索（例：蒲郡、西浦など市区町村名で検索すると見つけやすいです）
+                2文字以上入力で候補を検索（例：蒲郡、西浦など市区郡名で検索できます）
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                ※ エリア、スポットが外部に公開されることはありません
               </p>
             </div>
 
@@ -455,7 +489,7 @@ export default function SettingsPage() {
                     return (
                       <span
                         key={fishId}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-brand-accent text-white rounded-full text-sm"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-brand-primary text-white rounded-full text-sm"
                         title={fish?.kanji ?? undefined}
                       >
                         {fish?.kana ?? fishId}
@@ -492,7 +526,7 @@ export default function SettingsPage() {
                   value={fishInput}
                   onChange={(e) => setFishInput(e.target.value)}
                   onFocus={() => setShowFishDropdown(true)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                   placeholder="魚種名を入力して絞り込み"
                 />
 

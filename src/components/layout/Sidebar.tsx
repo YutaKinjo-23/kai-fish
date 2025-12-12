@@ -28,7 +28,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* サイドバー */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-60 bg-brand-primary text-white overflow-y-auto z-50 transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 h-screen w-60 bg-brand-primary text-white overflow-y-auto z-50 transition-transform duration-300 lg:translate-x-0 flex flex-col ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -68,6 +68,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             })}
           </ul>
         </nav>
+        <div className="mt-auto px-6 py-4 border-t border-white/10">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/60">
+            <Link href="/terms" onClick={onClose} className="hover:text-white hover:underline">
+              利用規約
+            </Link>
+            <Link href="/privacy" onClick={onClose} className="hover:text-white hover:underline">
+              プライバシーポリシー
+            </Link>
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLScW4-2EIhLG-49tpskWLqgxIJGQQ3L2MB3EcfsfZdGe_6m1rw/viewform?usp=dialog"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white hover:underline"
+            >
+              お問い合わせ
+            </a>
+          </div>
+        </div>
       </aside>
     </>
   );

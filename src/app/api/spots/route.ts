@@ -13,8 +13,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'area is required' }, { status: 400 });
     }
 
+    // エリア名から市区郡部分を抽出して部分一致検索
+    // 例: "愛知県 蒲郡" → "蒲郡" で contains 検索
+    const cityMatch = area.match(/[都道府県]\s*(.+)/);
+    const searchKeyword = cityMatch ? cityMatch[1] : area;
+
     const spots = await prisma.spot.findMany({
-      where: { area },
+      where: {
+        area: {
+          contains: searchKeyword,
+        },
+      },
       orderBy: { name: 'asc' },
       select: {
         id: true,

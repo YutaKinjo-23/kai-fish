@@ -1,20 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import {
-  LURE_DB_PRESETS,
-  SEASONS,
-  TIDES,
-  TIME_ZONES,
-  WATER_QUALITIES,
-} from './_lib/lure-conditions';
+import { SEASONS, TIDES, TIME_ZONES, WATER_QUALITIES } from './_lib/lure-conditions';
 import type { Lure } from '@/types/tackle';
 
 interface LureListItem extends Lure {
@@ -23,44 +16,59 @@ interface LureListItem extends Lure {
   avgSizeCm?: number | null;
 }
 
-interface MeResponse {
-  user?: {
-    areas?: string[];
-  };
+interface SpotOption {
+  area: string;
+  spotName: string;
 }
 
 export default function LureDBPage() {
-  const router = useRouter();
-  const [userAreas, setUserAreas] = useState<string[]>([]);
+  const [areaOptions, setAreaOptions] = useState<{ value: string; label: string }[]>([]);
+  const [spotOptions, setSpotOptions] = useState<{ value: string; label: string }[]>([]);
   const [lures, setLures] = useState<LureListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [presetId, setPresetId] = useState('');
   const [q, setQ] = useState('');
   const [area, setArea] = useState('');
+  const [spot, setSpot] = useState('');
   const [timeZone, setTimeZone] = useState('');
   const [season, setSeason] = useState('');
   const [tide, setTide] = useState('');
   const [waterQuality, setWaterQuality] = useState('');
 
+  // 釣行記録から使用されたエリアとスポットを取得
   useEffect(() => {
-    async function fetchMe() {
+    async function fetchSpotsFromLogs() {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch('/api/fishing-logs/spots');
         if (res.ok) {
-          const data: MeResponse = await res.json();
-          setUserAreas(data.user?.areas || []);
+          const data = await res.json();
+          const spots: SpotOption[] = data.spots || [];
+
+          // エリアの重複を排除
+          const areas = [...new Set(spots.map((s) => s.area).filter(Boolean))];
+          setAreaOptions(areas.map((a) => ({ value: a, label: a })));
+
+          // スポットの重複を排除（エリア付きで表示）
+          const spotSet = new Map<string, string>();
+          spots.forEach((s) => {
+            if (s.spotName && !spotSet.has(s.spotName)) {
+              spotSet.set(s.spotName, s.area || '');
+            }
+          });
+          setSpotOptions(
+            Array.from(spotSet.entries()).map(([name, areaName]) => ({
+              value: name,
+              label: areaName ? `${name} (${areaName})` : name,
+            }))
+          );
         }
       } catch {
-        setUserAreas([]);
+        setAreaOptions([]);
+        setSpotOptions([]);
       }
     }
-    fetchMe();
+    fetchSpotsFromLogs();
   }, []);
-
-  const areaOptions = useMemo(() => {
-    return userAreas.map((a) => ({ value: a, label: a }));
-  }, [userAreas]);
 
   useEffect(() => {
     async function fetchLures() {
@@ -69,6 +77,7 @@ export default function LureDBPage() {
         const params = new URLSearchParams();
         if (q.trim().length > 0) params.set('q', q.trim());
         if (area.trim().length > 0) params.set('area', area.trim());
+        if (spot.trim().length > 0) params.set('spot', spot.trim());
         if (timeZone.trim().length > 0) params.set('timeZone', timeZone.trim());
         if (season.trim().length > 0) params.set('season', season.trim());
         if (tide.trim().length > 0) params.set('tide', tide.trim());
@@ -87,37 +96,17 @@ export default function LureDBPage() {
       }
     }
     fetchLures();
-  }, [q, area, timeZone, season, tide, waterQuality]);
-
-  const applyPreset = (id: string) => {
-    setPresetId(id);
-    const preset = LURE_DB_PRESETS.find((p) => p.id === id);
-    if (!preset) return;
-    setArea(preset.filter.area || '');
-    setTimeZone(preset.filter.timeZone || '');
-  };
+  }, [q, area, spot, timeZone, season, tide, waterQuality]);
 
   return (
     <AppLayout pageTitle="ルアー図鑑">
       <Card>
         <CardHeader>
           <h2>ルアー図鑑</h2>
-          <Button size="sm" onClick={() => router.push('/tackle-box')}>
-            新規追加
-          </Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">プリセット</label>
-                <Select
-                  value={presetId}
-                  onChange={(value) => applyPreset(value)}
-                  options={LURE_DB_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
-                  placeholder="プリセットを選択"
-                />
-              </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">検索</label>
                 <Input
@@ -128,20 +117,21 @@ export default function LureDBPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">エリア</label>
-                {areaOptions.length > 0 ? (
-                  <Select
-                    value={area}
-                    onChange={(value) => setArea(value)}
-                    options={areaOptions}
-                    placeholder="エリアを選択"
-                  />
-                ) : (
-                  <Input
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
-                    placeholder="例: 西浦"
-                  />
-                )}
+                <Select
+                  value={area}
+                  onChange={(value) => setArea(value)}
+                  options={areaOptions}
+                  placeholder="エリアを選択"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">スポット</label>
+                <Select
+                  value={spot}
+                  onChange={(value) => setSpot(value)}
+                  options={spotOptions}
+                  placeholder="スポットを選択"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">時間帯</label>
@@ -184,9 +174,9 @@ export default function LureDBPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setPresetId('');
                     setQ('');
                     setArea('');
+                    setSpot('');
                     setTimeZone('');
                     setSeason('');
                     setTide('');

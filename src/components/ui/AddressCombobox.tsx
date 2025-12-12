@@ -122,12 +122,21 @@ export function AddressCombobox({
   const [inputValue, setInputValue] = useState(value);
   const [suggestions, setSuggestions] = useState<AddressOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 都道府県を含むかチェック
+  const hasPrefecture = useCallback((text: string): boolean => {
+    if (!text) return false;
+    // 北海道、〇〇都、〇〇府、〇〇県のパターンをチェック
+    return /北海道|.+[都府県]/.test(text);
+  }, []);
+
   useEffect(() => {
     setInputValue(value);
+    setValidationError(null);
   }, [value]);
 
   useEffect(() => {
@@ -196,6 +205,25 @@ export function AddressCombobox({
     }
   };
 
+  const handleBlur = (e: React.FocusEvent) => {
+    // ドロップダウン内のクリックの場合は無視
+    if (containerRef.current?.contains(e.relatedTarget as Node)) {
+      return;
+    }
+
+    // 値が入力されているが都道府県が含まれていない場合
+    if (inputValue && !hasPrefecture(inputValue)) {
+      setInputValue('');
+      onChange('');
+      setValidationError('都道府県を含めて選択してください');
+    }
+
+    // ドロップダウンを閉じる
+    setTimeout(() => {
+      setIsOpen(false);
+    }, 150);
+  };
+
   // よく行くエリア（ユーザー設定）をフィルタリング
   const filteredFavorites = userFavorites.filter(
     (fav) => !inputValue || fav.toLowerCase().includes(inputValue.toLowerCase())
@@ -213,10 +241,13 @@ export function AddressCombobox({
           value={inputValue}
           onChange={handleInputChange}
           onFocus={handleFocus}
+          onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           placeholder={placeholder}
-          className="block w-full px-3 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className={`block w-full px-3 py-2 pr-8 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary disabled:bg-gray-100 disabled:cursor-not-allowed ${
+            validationError ? 'border-red-500' : 'border-gray-300'
+          }`}
         />
         <button
           type="button"
@@ -297,6 +328,9 @@ export function AddressCombobox({
             )}
         </div>
       )}
+
+      {/* バリデーションエラー */}
+      {validationError && <p className="mt-1 text-xs text-red-500">{validationError}</p>}
     </div>
   );
 }
