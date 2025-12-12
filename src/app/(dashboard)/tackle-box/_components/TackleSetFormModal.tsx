@@ -15,6 +15,7 @@ interface TackleSetFormModalProps {
   onClose: () => void;
   onSubmit: (data: TackleSetFormData) => Promise<void>;
   editData?: TackleSet | null;
+  copyData?: TackleSet | null;
   rods: Rod[];
   reels: Reel[];
   lines: Line[];
@@ -40,6 +41,7 @@ export function TackleSetFormModal({
   onClose,
   onSubmit,
   editData,
+  copyData,
   rods,
   reels,
   lines,
@@ -60,23 +62,24 @@ export function TackleSetFormModal({
   }, [lines]);
 
   useEffect(() => {
-    if (editData) {
+    const sourceData = editData || copyData;
+    if (sourceData) {
       setFormData({
-        name: editData.name,
-        purpose: editData.purpose || '',
-        rodId: editData.rodId || '',
-        reelId: editData.reelId || '',
-        mainLineId: editData.mainLineId || '',
-        leaderId: editData.leaderId || '',
-        leaderLb: editData.leaderLb || '',
-        leaderLength: editData.leaderLength || '',
-        rigs: editData.rigs ? editData.rigs.split(',') : [],
-        targets: editData.targets ? editData.targets.split(',') : [],
+        name: copyData ? `${sourceData.name}（コピー）` : sourceData.name,
+        purpose: sourceData.purpose || '',
+        rodId: sourceData.rodId || '',
+        reelId: sourceData.reelId || '',
+        mainLineId: sourceData.mainLineId || '',
+        leaderId: sourceData.leaderId || '',
+        leaderLb: sourceData.leaderLb || '',
+        leaderLength: sourceData.leaderLength || '',
+        rigs: sourceData.rigs ? sourceData.rigs.split(',') : [],
+        targets: sourceData.targets ? sourceData.targets.split(',') : [],
       });
     } else {
       setFormData(EMPTY_FORM);
     }
-  }, [editData, isOpen]);
+  }, [editData, copyData, isOpen]);
 
   // リグ用の状態
   const [rigInput, setRigInput] = useState('');
@@ -200,13 +203,15 @@ export function TackleSetFormModal({
     return fish.kana.includes(fishInput) || (fish.kanji && fish.kanji.includes(fishInput));
   });
 
+  // モーダルタイトル
+  const modalTitle = editData
+    ? 'タックルセットを編集'
+    : copyData
+      ? 'タックルセットをコピー'
+      : '新規タックルセット';
+
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={editData ? 'タックルセットを編集' : '新規タックルセット'}
-      size="lg"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* セット名 */}
         <div>

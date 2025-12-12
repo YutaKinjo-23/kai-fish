@@ -514,6 +514,16 @@ export function FishingLogFormModal({
   const updateEvent = <T extends FishingEvent>(index: number, updates: Partial<T>) => {
     const newEvents = [...formData.events];
     newEvents[index] = { ...newEvents[index], ...updates } as FishingEvent;
+
+    // 開始イベントの時刻が変更された場合、最初のspotイベントの時刻も同期する
+    const currentEvent = formData.events[index];
+    if (currentEvent.type === 'start' && 'time' in updates) {
+      const firstSpotIndex = newEvents.findIndex((e) => e.type === 'spot');
+      if (firstSpotIndex !== -1) {
+        newEvents[firstSpotIndex] = { ...newEvents[firstSpotIndex], time: updates.time as string };
+      }
+    }
+
     setFormData({ ...formData, events: newEvents });
   };
 
