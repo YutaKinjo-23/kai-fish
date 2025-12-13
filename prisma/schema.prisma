@@ -31,6 +31,11 @@ model User {
   terminalTackles TerminalTackle[]
   // プラン変更履歴
   planHistories  PlanHistory[]
+  // LINE連携
+  lineAccount        LineAccount?
+  lineFishingSessions LineFishingSession[]
+  lineFishingEvents  LineFishingEvent[]
+  imageAssets        ImageAsset[]
 }
 
 model Session {
@@ -282,4 +287,78 @@ model PlanHistory {
   createdAt       DateTime @default(now())
 
   @@index([userId])
+}
+
+// ========================================
+// LINE連携 - 釣行記録機能
+// ========================================
+
+// LINEアカウント連携
+model LineAccount {
+  id         String   @id @default(cuid())
+  userId     String   @unique  // 1ユーザー1LINE連携
+  lineUserId String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// LINE経由の釣行セッション
+model LineFishingSession {
+  id            String    @id @default(cuid())
+  userId        String
+  source        String    // 'LINE' など
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  autoEnded     Boolean   @default(false)
+  assistCount   Int       @default(0) // Freeプランの介入回数制御用
+  lastEventAt   DateTime  @default(now())
+
+  user   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events LineFishingEvent[]
+  images ImageAsset[]
+
+  @@index([userId, startedAt])
+  @@index([userId, endedAt])
+}
+
+// LINE経由の釣行イベント
+model LineFishingEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  sessionId  String
+  source     String   // 'LINE'
+  type       String   // 'START'|'END'|'HIT'|'SNAG'|'RIG_CHANGED'|'LOCATION'|'IMAGE'|'POSTBACK'|'LOCATION_PROMPT'
+  occurredAt DateTime @default(now()) // LINE event.timestamp から復元
+  payload    Json?
+  createdAt  DateTime @default(now())
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session LineFishingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  images  ImageAsset[]
+
+  @@index([userId, occurredAt])
+  @@index([sessionId, occurredAt])
+}
+
+// 画像アセット（LINE経由でアップロードされた画像）
+model ImageAsset {
+  id         String   @id @default(cuid())
+  userId     String
+  sessionId  String
+  eventId    String?
+  source     String   // 'LINE'
+  messageId  String   // LINE messageId
+  localPath  String   // ディスク上の保存パス
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime @default(now())
+
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session LineFishingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  event   LineFishingEvent?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@unique([source, messageId])
 }
