@@ -47,4 +47,4 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 3000
 
 # Apply migrations at startup, then launch Next.js server
-CMD ["sh", "-c", "pnpm prisma:migrate-deploy && pnpm start --hostname 0.0.0.0 --port 3000"]
+CMD ["sh", "-c", "pnpm prisma:migrate-deploy && npx next start -H 0.0.0.0 -p 3000"]
