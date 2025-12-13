@@ -7,6 +7,176 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { FISH_SPECIES_MASTER, FishSpecies } from '@/lib/master/fish-species';
 
+// ========================================
+// LINE連携セクションコンポーネント
+// ========================================
+
+function LineIntegrationSection() {
+  const [isLinked, setIsLinked] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUnlinking, setIsUnlinking] = useState(false);
+  const [linkedAt, setLinkedAt] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+
+  // LINE連携状態を取得
+  useEffect(() => {
+    const fetchLinkStatus = async () => {
+      try {
+        const res = await fetch('/api/line/link');
+        if (res.ok) {
+          const data = await res.json();
+          setIsLinked(data.linked);
+          if (data.lineAccount?.createdAt) {
+            setLinkedAt(new Date(data.lineAccount.createdAt).toLocaleDateString('ja-JP'));
+          }
+        }
+      } catch {
+        console.error('LINE連携状態の取得に失敗しました');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchLinkStatus();
+  }, []);
+
+  // LINE連携を解除
+  const handleUnlink = async () => {
+    if (!confirm('LINE連携を解除しますか？\n解除するとLINEからの釣行記録ができなくなります。')) {
+      return;
+    }
+
+    setIsUnlinking(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch('/api/line/link', { method: 'DELETE' });
+      if (res.ok) {
+        setIsLinked(false);
+        setLinkedAt(null);
+        setMessage({ type: 'success', text: 'LINE連携を解除しました。' });
+      } else {
+        setMessage({ type: 'error', text: '解除に失敗しました。' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: '通信エラーが発生しました。' });
+    } finally {
+      setIsUnlinking(false);
+    }
+  };
+
+  // LIFF URLを生成
+  const getLiffUrl = () => {
+    if (!liffId) return null;
+    return `https://liff.line.me/${liffId}`;
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="mt-6">
+        <CardHeader>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z"/>
+            </svg>
+            LINE連携
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500">読み込み中...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z"/>
+          </svg>
+          LINE連携
+        </h2>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-gray-600">
+          LINEと連携すると、LINEから釣行記録ができるようになります。
+          釣り場で手軽にHIT・位置情報・写真を記録できます。
+        </p>
+
+        {isLinked ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-green-600">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="font-medium">連携済み</span>
+              {linkedAt && <span className="text-sm text-gray-500">（{linkedAt}から）</span>}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleUnlink}
+              disabled={isUnlinking}
+              className="px-4 py-2 text-red-600 border border-red-300 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
+            >
+              {isUnlinking ? '解除中...' : '連携を解除'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-gray-500">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>未連携</span>
+            </div>
+
+            {liffId ? (
+              <a
+                href={getLiffUrl() ?? '#'}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z"/>
+                </svg>
+                LINEで連携する
+              </a>
+            ) : (
+              <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg">
+                LINE連携機能は現在準備中です。
+              </p>
+            )}
+
+            <div className="text-xs text-gray-500 space-y-1">
+              <p>※ LINEアプリが開き、連携の許可を求められます。</p>
+              <p>※ 1つのLINEアカウントは1つのKAIアカウントにのみ連携できます。</p>
+            </div>
+          </div>
+        )}
+
+        {message && (
+          <div
+            className={`p-3 rounded-lg text-sm ${
+              message.type === 'success'
+                ? 'bg-green-50 text-green-700'
+                : 'bg-red-50 text-red-700'
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ========================================
+// メイン設定ページ
+// ========================================
+
 interface GeoApiLocation {
   prefecture: string;
   city: string;
@@ -579,6 +749,9 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </form>
+
+      {/* LINE連携セクション */}
+      <LineIntegrationSection />
     </AppLayout>
   );
 }
