@@ -38,6 +38,7 @@ export default function TackleBoxPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSet, setEditingSet] = useState<TackleSet | null>(null);
+  const [copyingSet, setCopyingSet] = useState<TackleSet | null>(null);
   const [deletingSet, setDeletingSet] = useState<TackleSet | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -327,6 +328,13 @@ export default function TackleBoxPage() {
 
   const openEditModal = (set: TackleSet) => {
     setEditingSet(set);
+    setCopyingSet(null);
+    setIsModalOpen(true);
+  };
+
+  const openCopyModal = (set: TackleSet) => {
+    setEditingSet(null);
+    setCopyingSet(set);
     setIsModalOpen(true);
   };
 
@@ -362,6 +370,7 @@ export default function TackleBoxPage() {
                     key={set.id}
                     tackleSet={set}
                     onEdit={() => openEditModal(set)}
+                    onCopy={() => openCopyModal(set)}
                     onDelete={() => setDeletingSet(set)}
                   />
                 ))}
@@ -428,9 +437,11 @@ export default function TackleBoxPage() {
           onClose={() => {
             setIsModalOpen(false);
             setEditingSet(null);
+            setCopyingSet(null);
           }}
           onSubmit={handleSubmit}
           editData={editingSet}
+          copyData={copyingSet}
           rods={rods}
           reels={reels}
           lines={lines}

@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, Trash2 } from 'lucide-react';
+import { Copy, Trash2 } from 'lucide-react';
 import { FISH_SPECIES_MASTER } from '@/lib/master/fish-species';
 import { RIG_TYPES_MASTER } from '@/lib/master/rig-types';
 import type { TackleSet } from '@/types/tackle';
@@ -8,10 +8,11 @@ import type { TackleSet } from '@/types/tackle';
 interface TackleSetCardProps {
   tackleSet: TackleSet;
   onEdit: () => void;
+  onCopy: () => void;
   onDelete: () => void;
 }
 
-export function TackleSetCard({ tackleSet, onEdit, onDelete }: TackleSetCardProps) {
+export function TackleSetCard({ tackleSet, onEdit, onCopy, onDelete }: TackleSetCardProps) {
   // リグ名取得
   const rigNames = tackleSet.rigs
     ? tackleSet.rigs.split(',').map((id) => {
@@ -29,21 +30,24 @@ export function TackleSetCard({ tackleSet, onEdit, onDelete }: TackleSetCardProp
     : [];
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+    <div
+      className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer hover:bg-gray-50"
+      onClick={onEdit}
+    >
       {/* ヘッダー */}
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="font-semibold text-gray-900">{tackleSet.name}</h3>
           {tackleSet.purpose && <p className="text-sm text-gray-500 mt-0.5">{tackleSet.purpose}</p>}
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={onEdit}
+            onClick={onCopy}
             className="p-1.5 text-gray-400 hover:text-brand-primary hover:bg-gray-100 rounded transition-colors"
-            title="編集"
+            title="コピーして新規作成"
           >
-            <Pencil className="w-4 h-4" />
+            <Copy className="w-4 h-4" />
           </button>
           <button
             type="button"

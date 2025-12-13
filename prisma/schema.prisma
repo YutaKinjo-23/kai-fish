@@ -8,25 +8,29 @@ datasource db {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String
-  displayName  String?
-  avatarUrl    String?
-  areas        String[]     // よく行くエリア
-  targets      String[]
-  createdAt    DateTime     @default(now())
-  sessions     Session[]
-  fishingLogs  FishingLog[]
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  plan           String       @default("free")
+  subscriptionId String?      // Stripe等のサブスクID（将来用）
+  displayName    String?
+  avatarUrl      String?
+  areas          String[]     // よく行くエリア
+  targets        String[]
+  createdAt      DateTime     @default(now())
+  sessions       Session[]
+  fishingLogs    FishingLog[]
   // スポットのお気に入り
-  favoriteSpots FavoriteSpot[]
+  favoriteSpots  FavoriteSpot[]
   // タックル関連
-  rods         Rod[]
-  reels        Reel[]
-  lines        Line[]
-  tackleSets   TackleSet[]
-  lures        Lure[]
+  rods           Rod[]
+  reels          Reel[]
+  lines          Line[]
+  tackleSets     TackleSet[]
+  lures          Lure[]
   terminalTackles TerminalTackle[]
+  // プラン変更履歴
+  planHistories  PlanHistory[]
 }
 
 model Session {
@@ -264,4 +268,18 @@ model TerminalTackle {
 
   @@index([userId])
   @@index([category])
+}
+
+// プラン変更履歴（監査用）
+model PlanHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromPlan        String   // 変更前プラン（free, pro）
+  toPlan          String   // 変更後プラン（free, pro）
+  reason          String?  // 変更理由（手動切替時のメモ）
+  changedByUserId String?  // 変更を実行した管理者のユーザーID
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
 }

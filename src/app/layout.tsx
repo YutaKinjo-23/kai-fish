@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Script from 'next/script';
 import { Noto_Sans_JP } from 'next/font/google';
+import { Providers } from './providers';
 import './globals.css';
 
 const GA_ID = 'G-W21ZZ90D2F';
@@ -40,7 +41,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           `}
         </Script>
       </head>
-      <body className={notoSans.className}>{children}</body>
+      <body className={notoSans.className}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
