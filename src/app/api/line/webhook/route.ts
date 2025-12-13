@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLineSignature } from '@/lib/line/signature';
-import { LineClient } from '@/lib/line/client';
+import { LineClient, QuickReplyItem } from '@/lib/line/client';
 import { saveLineBinaryToLocal } from '@/lib/storage/localStorage';
 
 // ========================================
@@ -83,6 +83,37 @@ async function getOrCreateActiveSession(params: {
   return { id: created.id, isNew: true };
 }
 
+/**
+ * 過去の釣行から最近使用したスポットを取得（最大10件）
+ */
+async function getRecentSpots(userId: string): Promise<Array<{ spotName: string; area: string }>> {
+  // FishingEventからスポット情報（type='spot'）を最近の順で取得
+  const events = await prisma.fishingEvent.findMany({
+    where: {
+      fishingLog: { userId },
+      type: 'spot',
+      spotName: { not: null },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { spotName: true, area: true },
+    take: 30, // 重複除去前に多めに取得
+  });
+
+  // 重複除去（spotName + areaでユニーク化）
+  const seen = new Set<string>();
+  const unique: Array<{ spotName: string; area: string }> = [];
+  for (const e of events) {
+    if (!e.spotName) continue;
+    const key = `${e.spotName}|${e.area ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push({ spotName: e.spotName, area: e.area ?? '' });
+    if (unique.length >= 10) break;
+  }
+
+  return unique;
+}
+
 // ========================================
 // Postback Action Handlers
 // ========================================
@@ -98,26 +129,52 @@ type PostbackContext = {
 };
 
 async function handleStartAction(ctx: PostbackContext): Promise<void> {
-  await prisma.lineFishingEvent.create({
-    data: {
-      userId: ctx.userId,
-      sessionId: ctx.sessionId,
-      source: 'LINE',
-      type: 'START',
-      occurredAt: ctx.occurredAt,
-      payload: { action: ctx.action },
-    },
+  // 既にアクティブなセッションがある場合は案内
+  const activeSession = await prisma.lineFishingSession.findFirst({
+    where: { userId: ctx.userId, endedAt: null, source: 'LINE' },
   });
 
-  await prisma.lineFishingSession.update({
-    where: { id: ctx.sessionId },
-    data: { lastEventAt: ctx.occurredAt },
-  });
+  if (activeSession) {
+    if (ctx.replyToken) {
+      await ctx.line.replyText({
+        replyToken: ctx.replyToken,
+        text: '⚠️ 既に釣行中です。\n\n終了するには「END」ボタンを押してください。',
+      });
+    }
+    return;
+  }
+
+  // 過去のスポットを取得
+  const recentSpots = await getRecentSpots(ctx.userId);
+
+  // クイックリプライを構築
+  const quickReplyItems: QuickReplyItem[] = [
+    // 位置情報送信ボタン（必ず先頭に）
+    {
+      type: 'action',
+      action: { type: 'location', label: '📍 位置情報を送信' },
+    },
+  ];
+
+  // 過去スポットをpostbackボタンとして追加（最大12件、合計13件まで）
+  for (const spot of recentSpots.slice(0, 12)) {
+    const label = spot.spotName.length > 17 ? spot.spotName.slice(0, 16) + '…' : spot.spotName;
+    quickReplyItems.push({
+      type: 'action',
+      action: {
+        type: 'postback',
+        label: `🎣 ${label}`,
+        data: `action=START_AT_SPOT&spot=${encodeURIComponent(spot.spotName)}&area=${encodeURIComponent(spot.area)}`,
+        displayText: spot.spotName,
+      },
+    });
+  }
 
   if (ctx.replyToken) {
-    await ctx.line.replyText({
+    await ctx.line.replyWithQuickReply({
       replyToken: ctx.replyToken,
-      text: '🎣 釣行を開始しました！\n\n位置情報を送ると環境データが取れます。\n釣れたらHIT、根掛かりはSNAGボタンを押してください。',
+      text: '🎣 どこで釣行を開始しますか？\n\n位置情報を送信するか、過去のスポットを選んでください。',
+      quickReply: { items: quickReplyItems },
     });
   }
 }
@@ -251,6 +308,67 @@ async function handleLocationPromptAction(ctx: PostbackContext): Promise<void> {
   }
 }
 
+/**
+ * START_AT_SPOT: 過去のスポットを選択して釣行開始
+ */
+async function handleStartAtSpotAction(ctx: PostbackContext): Promise<void> {
+  const spotName = ctx.params.spot ? decodeURIComponent(ctx.params.spot) : null;
+  const area = ctx.params.area ? decodeURIComponent(ctx.params.area) : null;
+
+  if (!spotName) {
+    if (ctx.replyToken) {
+      await ctx.line.replyText({
+        replyToken: ctx.replyToken,
+        text: '⚠️ スポット情報が取得できませんでした。',
+      });
+    }
+    return;
+  }
+
+  // 新しいセッションを作成
+  const newSession = await prisma.lineFishingSession.create({
+    data: {
+      userId: ctx.userId,
+      source: 'LINE',
+      startedAt: ctx.occurredAt,
+      lastEventAt: ctx.occurredAt,
+    },
+    select: { id: true },
+  });
+
+  // STARTイベント
+  await prisma.lineFishingEvent.create({
+    data: {
+      userId: ctx.userId,
+      sessionId: newSession.id,
+      source: 'LINE',
+      type: 'START',
+      occurredAt: ctx.occurredAt,
+      payload: { action: 'START_AT_SPOT', spotName, area },
+    },
+  });
+
+  // SPOTイベント（スポット情報を記録）
+  await prisma.lineFishingEvent.create({
+    data: {
+      userId: ctx.userId,
+      sessionId: newSession.id,
+      source: 'LINE',
+      type: 'SPOT',
+      occurredAt: ctx.occurredAt,
+      payload: { spotName, area },
+    },
+  });
+
+  if (ctx.replyToken) {
+    const areaText = area ? `（${area}）` : '';
+    await ctx.line.replyText({
+      replyToken: ctx.replyToken,
+      text: `🎣 ${spotName}${areaText}で釣行を開始しました！\n\n釣れたら「HIT」、仕掛けを変えたら「仕掛け交換」ボタンを押してください。`,
+    });
+  }
+}
+
 async function handleUnknownPostback(ctx: PostbackContext): Promise<void> {
   await prisma.lineFishingEvent.create({
     data: {
@@ -275,21 +393,56 @@ async function handleUnknownPostback(ctx: PostbackContext): Promise<void> {
 
 type MessageContext = {
   userId: string;
-  sessionId: string;
+  sessionId: string | null; // nullの場合はセッション未開始
   occurredAt: Date;
   replyToken?: string;
   line: LineClient;
   uploadBaseDir: string;
 };
 
+/**
+ * 位置情報メッセージ処理
+ * セッションがなければ新規作成してSTART + LOCATION
+ */
 async function handleLocationMessage(
   ctx: MessageContext,
   location: { latitude: number; longitude: number; address?: string }
 ): Promise<void> {
+  let sessionId = ctx.sessionId;
+  let isNewSession = false;
+
+  // セッションがない場合は新規作成
+  if (!sessionId) {
+    const newSession = await prisma.lineFishingSession.create({
+      data: {
+        userId: ctx.userId,
+        source: 'LINE',
+        startedAt: ctx.occurredAt,
+        lastEventAt: ctx.occurredAt,
+      },
+      select: { id: true },
+    });
+    sessionId = newSession.id;
+    isNewSession = true;
+
+    // STARTイベント
+    await prisma.lineFishingEvent.create({
+      data: {
+        userId: ctx.userId,
+        sessionId,
+        source: 'LINE',
+        type: 'START',
+        occurredAt: ctx.occurredAt,
+        payload: { action: 'START_WITH_LOCATION' },
+      },
+    });
+  }
+
+  // LOCATIONイベント
   await prisma.lineFishingEvent.create({
     data: {
       userId: ctx.userId,
-      sessionId: ctx.sessionId,
+      sessionId,
       source: 'LINE',
       type: 'LOCATION',
       occurredAt: ctx.occurredAt,
@@ -302,19 +455,30 @@ async function handleLocationMessage(
   });
 
   await prisma.lineFishingSession.update({
-    where: { id: ctx.sessionId },
+    where: { id: sessionId },
     data: { lastEventAt: ctx.occurredAt },
   });
 
   if (ctx.replyToken) {
-    await ctx.line.replyText({
-      replyToken: ctx.replyToken,
-      text: `📍 位置を記録しました。\n\n緯度: ${location.latitude.toFixed(6)}\n経度: ${location.longitude.toFixed(6)}`,
-    });
+    if (isNewSession) {
+      const addressText = location.address ? `\n${location.address}` : '';
+      await ctx.line.replyText({
+        replyToken: ctx.replyToken,
+        text: `🎣 釣行を開始しました！${addressText}\n\n釣れたら「HIT」、仕掛けを変えたら「仕掛け交換」ボタンを押してください。`,
+      });
+    } else {
+      await ctx.line.replyText({
+        replyToken: ctx.replyToken,
+        text: `📍 位置を記録しました。\n\n緯度: ${location.latitude.toFixed(6)}\n経度: ${location.longitude.toFixed(6)}`,
+      });
+    }
   }
 }
 
-async function handleImageMessage(ctx: MessageContext, messageId: string): Promise<void> {
+async function handleImageMessage(
+  ctx: MessageContext & { sessionId: string },
+  messageId: string
+): Promise<void> {
   // LINE APIから画像を取得
   const { bytes, mimeType } = await ctx.line.getMessageContent({ messageId });
 
@@ -420,9 +584,6 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // アクティブなセッションを取得または作成
-      const session = await getOrCreateActiveSession({ userId });
-
       // イベント時刻
       const occurredAt =
         typeof event.timestamp === 'number' ? fromLineTimestamp(event.timestamp) : new Date();
@@ -434,9 +595,19 @@ export async function POST(req: Request) {
         const params = parsePostbackData(data);
         const action = params.action ?? 'UNKNOWN';
 
+        // PostbackイベントはSTART以外はセッションが必要
+        // STARTとSTART_AT_SPOTは自分でセッション管理する
+        const needsSession = !['START', 'START_AT_SPOT'].includes(action);
+        let sessionId: string | null = null;
+
+        if (needsSession) {
+          const session = await getOrCreateActiveSession({ userId });
+          sessionId = session.id;
+        }
+
         const ctx: PostbackContext = {
           userId,
-          sessionId: session.id,
+          sessionId: sessionId ?? '', // START系は使わない
           occurredAt,
           action,
           params,
@@ -447,6 +618,9 @@ export async function POST(req: Request) {
         switch (action) {
           case 'START':
             await handleStartAction(ctx);
+            break;
+          case 'START_AT_SPOT':
+            await handleStartAtSpotAction(ctx);
             break;
           case 'END':
             await handleEndAction(ctx);
@@ -472,9 +646,17 @@ export async function POST(req: Request) {
       // Messageイベント処理
       if (event.type === 'message') {
         const me = e as LineMessageEvent;
+
+        // アクティブセッションを取得（存在すれば）
+        const activeSession = await prisma.lineFishingSession.findFirst({
+          where: { userId, endedAt: null, source: 'LINE' },
+          orderBy: { startedAt: 'desc' },
+          select: { id: true },
+        });
+
         const msgCtx: MessageContext = {
           userId,
-          sessionId: session.id,
+          sessionId: activeSession?.id ?? null,
           occurredAt,
           replyToken: me.replyToken,
           line,
@@ -491,7 +673,17 @@ export async function POST(req: Request) {
         }
 
         if (me.message?.type === 'image') {
-          await handleImageMessage(msgCtx, me.message.id);
+          // 画像はセッションが必要
+          if (!msgCtx.sessionId) {
+            if (me.replyToken) {
+              await line.replyText({
+                replyToken: me.replyToken,
+                text: '📷 写真を記録するには先に「START」ボタンで釣行を開始してください。',
+              });
+            }
+            continue;
+          }
+          await handleImageMessage({ ...msgCtx, sessionId: msgCtx.sessionId }, me.message.id);
           continue;
         }
 
