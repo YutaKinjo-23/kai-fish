@@ -19,6 +19,8 @@ function LineIntegrationSection() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+  // LINE公式アカウントの友達追加URL（LINE Official Account Manager で確認）
+  const lineBotBasicId = process.env.NEXT_PUBLIC_LINE_BOT_BASIC_ID; // @xxxxx 形式
 
   // LINE連携状態を取得
   useEffect(() => {
@@ -78,7 +80,7 @@ function LineIntegrationSection() {
         <CardHeader>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z"/>
+              <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z" />
             </svg>
             LINE連携
           </h2>
@@ -95,7 +97,7 @@ function LineIntegrationSection() {
       <CardHeader>
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z"/>
+            <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z" />
           </svg>
           LINE連携
         </h2>
@@ -110,7 +112,12 @@ function LineIntegrationSection() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-green-600">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
               <span className="font-medium">連携済み</span>
               {linkedAt && <span className="text-sm text-gray-500">（{linkedAt}から）</span>}
@@ -129,26 +136,85 @@ function LineIntegrationSection() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-gray-500">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
               <span>未連携</span>
             </div>
 
-            {liffId ? (
-              <a
-                href={getLiffUrl() ?? '#'}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z"/>
-                </svg>
-                LINEで連携する
-              </a>
-            ) : (
-              <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg">
-                LINE連携機能は現在準備中です。
-              </p>
-            )}
+            {/* 連携手順 */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h3 className="font-medium text-sm text-gray-700">連携手順</h3>
+
+              {/* Step 1: 友達追加 */}
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 text-white text-xs flex items-center justify-center font-bold">
+                  1
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-700 font-medium">LINE公式アカウントを友達追加</p>
+                  {lineBotBasicId ? (
+                    <a
+                      href={`https://line.me/R/ti/p/${lineBotBasicId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-1 text-sm text-green-600 hover:text-green-700"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z" />
+                      </svg>
+                      友達追加する
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">
+                      LINE ID: <span className="font-mono">@kai-umi</span> を検索して追加
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 2: 連携 */}
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 text-white text-xs flex items-center justify-center font-bold">
+                  2
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-700 font-medium">アカウント連携</p>
+                  {liffId ? (
+                    <a
+                      href={getLiffUrl() ?? '#'}
+                      className="inline-flex items-center gap-2 mt-2 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.14 2 11.2c0 4.48 3.88 8.22 9.12 8.94V24l4.58-4.24C19.85 17.83 22 14.73 22 11.2 22 6.14 17.52 2 12 2z" />
+                      </svg>
+                      LINEで連携する
+                    </a>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">
+                      友達追加後、トーク画面の「連携」ボタンから連携できます
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
 
             <div className="text-xs text-gray-500 space-y-1">
               <p>※ LINEアプリが開き、連携の許可を求められます。</p>
@@ -160,9 +226,7 @@ function LineIntegrationSection() {
         {message && (
           <div
             className={`p-3 rounded-lg text-sm ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-700'
-                : 'bg-red-50 text-red-700'
+              message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
             }`}
           >
             {message.text}

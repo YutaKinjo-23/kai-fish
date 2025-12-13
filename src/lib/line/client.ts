@@ -1,8 +1,24 @@
 // src/lib/line/client.ts
 
-export interface LineMessage {
+export interface LineTextMessage {
   type: 'text';
   text: string;
+}
+
+// LINE メッセージ型（テキスト以外も対応可能に）
+export type LineMessage = LineTextMessage;
+
+// クイックリプライアイテム
+export interface QuickReplyItem {
+  type: 'action';
+  action:
+    | { type: 'postback'; label: string; data: string; displayText?: string }
+    | { type: 'location'; label: string }
+    | { type: 'message'; label: string; text: string };
+}
+
+export interface QuickReply {
+  items: QuickReplyItem[];
 }
 
 /**
@@ -28,6 +44,38 @@ export class LineClient {
       body: JSON.stringify({
         replyToken: params.replyToken,
         messages: [{ type: 'text', text: params.text }],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`LINE reply failed: ${res.status} ${body}`);
+    }
+  }
+
+  /**
+   * クイックリプライ付きでテキストを送信
+   */
+  async replyWithQuickReply(params: {
+    replyToken: string;
+    text: string;
+    quickReply: QuickReply;
+  }): Promise<void> {
+    const res = await fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        replyToken: params.replyToken,
+        messages: [
+          {
+            type: 'text',
+            text: params.text,
+            quickReply: params.quickReply,
+          },
+        ],
       }),
     });
 
